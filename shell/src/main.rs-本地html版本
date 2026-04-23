@@ -1,0 +1,134 @@
+//! Vokex Shell - 最小可用版本
+//! 只做一件事：用 tao 创建窗口，用 wry 加载空白页面
+//!
+//! `//!` 是 Rust 的模块级注释（文档注释），描述整个文件的作用
+
+// `#![]` 是 Rust 的属性标记，用来给编译器下指令
+// `cfg_attr` 意思是"如果满足某个条件，就加上某个属性"
+// `not(debug_assertions)` = 如果不是 debug 模式（即 release 模式）
+// `windows_subsystem = "windows"` = 告诉 Windows：这是窗口程序，不要弹黑框控制台
+// 效果：debug 编译会有控制台方便看日志，release 编译只有窗口没有控制台
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// `use` = 引入其他模块的东西，类似 JS 的 import
+// 从 tao 库的 event 模块引入 Event（所有事件的枚举）和 WindowEvent（窗口事件的枚举）
+use tao::event::{Event, WindowEvent};
+
+// 从 tao 的 event_loop 模块引入：
+// - ControlFlow：控制事件循环是否继续运行（Wait=继续等待，Exit=退出）
+// - EventLoop：事件循环本身，每个 GUI 程序有且只有一个
+use tao::event_loop::{ControlFlow, EventLoop};
+
+// 从 tao 的 window 模块引入 WindowBuilder，用来配置和创建窗口
+use tao::window::WindowBuilder;
+
+// 从 wry 库引入 Response，用来构造 HTTP 响应（给自定义协议返回网页内容）
+use wry::http::Response;
+
+// 从 wry 库引入 WebViewBuilder，用来配置和创建 WebView（网页渲染区域）
+use wry::WebViewBuilder;
+
+// 程序入口函数
+fn main() {
+    // ============================================================
+    // 第 1 步：创建事件循环
+    // ============================================================
+    // 事件循环 = 一个无限循环，不断从操作系统接收事件（点击、按键、拖动等）
+    // 它是整个程序的"心脏"，所有 GUI 程序都必须有一个
+    let event_loop = EventLoop::new();
+
+    // ============================================================
+    // 第 2 步：创建窗口
+    // ============================================================
+    // WindowBuilder::new() = 创建一个窗口构建器（默认配置）
+    //   .with_title("Vokex") = 设置窗口标题栏文字为 "Vokex"
+    //   .with_inner_size(...) = 设置窗口内容区域大小为 800x600 逻辑像素
+    //     LogicalSize = 逻辑像素（会自动适配高分屏缩放，比如 150% 缩放下实际是 1200x900 物理像素）
+    //   .build(&event_loop) = 用事件循环来创建窗口（窗口需要事件循环才能接收事件）
+    //   .unwrap() = 如果创建失败就 panic（正常情况不会失败）
+    let window = WindowBuilder::new()
+        .with_title("Vokex")
+        .with_inner_size(tao::dpi::LogicalSize::new(800, 600))
+        .build(&event_loop)
+        .unwrap();
+
+    // ============================================================
+    // 第 3 步：创建 WebView（在窗口里嵌入浏览器）
+    // ============================================================
+    // WebViewBuilder::new() = 创建一个 WebView 构建器
+    //   .with_url("vokex://index.html") = 加载的地址
+    //     注意：这里用的是自定义协议 "vokex://"，不是 "http://"
+    //     浏览器不知道怎么处理 "vokex://"，所以需要下面注册自定义协议来处理
+    //
+    //   .with_custom_protocol("vokex".to_string(), |_request| { ... }) = 注册自定义协议
+    //     当 WebView 请求 "vokex://xxx" 时，会调用这个闭包（匿名函数）来生成响应
+    //     |_request| = 请求参数，用 _ 开头表示"我不关心这个参数"
+    //     闭包返回一个 HTTP Response，包含 HTML 内容
+    //
+    //   .with_devtools(true) = 允许打开开发者工具（按 F12），方便调试
+    //   .build(&window) = 把 WebView 绑定到刚才创建的窗口上
+    let _webview = WebViewBuilder::new()
+        .with_url("vokex://index.html")
+        .with_custom_protocol("vokex".to_string(), |_request, _webview_id| {
+            // r#"..."# = Rust 的原始字符串，里面的内容不需要转义（可以直接写 HTML、引号、反斜杠等）
+            let html = r#"<!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Vokex</title></head>
+                <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#1a1a2e;color:#e0e0e0">
+                <div style="text-align:center">
+                    <h1>Vokex</h1>
+                    <p>tao 0.35 + wry 0.55</p>
+                </div>
+                </body>
+                </html>"#;
+            // 构造 HTTP 响应
+            //   Response::builder() = 创建响应构建器
+            //   .header("Content-Type", "text/html; charset=utf-8") = 告诉浏览器这是 HTML 文件，编码是 UTF-8
+            //   .body(html.as_bytes().to_vec().into()) = 把 HTML 字符串放入响应体
+            //   .unwrap() = 构建失败就 panic（正常不会失败）
+            Response::builder()
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(html.as_bytes().to_vec().into())
+                .unwrap()
+        })
+        .with_devtools(true)
+        .build(&window)
+        .unwrap();
+
+    // 注意：webview 变量没有被使用，但必须保存它
+    // 因为 webview 被 drop（销毁）时，WebView 也会被销毁
+    // 如果不保存，WebView 会立即消失，窗口变成空白
+
+    // ============================================================
+    // 第 4 步：运行事件循环
+    // ============================================================
+    // event_loop.run() = 启动事件循环，程序会在这里阻塞，直到退出
+    //   move |event, _, control_flow| = 闭包，每次有事件时被调用
+    //     move = 闭包获取外部变量的所有权（这里需要获取 window 和 webview 的所有权）
+    //     event = 发生的事件（点击、按键、窗口缩放等）
+    //     _ = 事件循环目标（EventLoopWindowTarget），这里不需要用，用 _ 忽略
+    //     control_flow = 控制事件循环行为的引用（Wait=继续，Exit=退出）
+    event_loop.run(move |event, _, control_flow| {
+        // 设置默认行为：没有事件时休眠等待（不占 CPU）
+        // 如果不设置，默认也是 Wait，但显式写出来更清晰
+        *control_flow = ControlFlow::Wait;
+
+        // match = Rust 的模式匹配，类似 switch-case，但更强大
+        match event {
+            // 匹配"窗口事件"中的"关闭请求"
+            // Event::WindowEvent { event, .. } = 解构窗口事件
+            //   event = 具体的窗口事件类型
+            //   .. = 忽略其他字段（比如 window_id）
+            // WindowEvent::CloseRequested = 用户点了窗口右上角的 X 按钮
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            // 把 control_flow 设为 Exit，事件循环会退出，程序结束
+            } => *control_flow = ControlFlow::Exit,
+
+            // _ = 其他所有事件，不处理（忽略）
+            // 包括：鼠标移动、键盘输入、窗口缩放、系统托盘等
+            _ => {}
+        }
+    });
+}
