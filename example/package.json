@@ -1,0 +1,17 @@
+{
+  "name": "vokex-example",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vokex": "file:.."
+  },
+  "devDependencies": {
+    "vite": "^8.0.8"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "vokex",
+  "version": "0.1.0",
+  "description": "超轻量级桌面应用构建库 - Vite 构建后一键打包为原生可执行文件",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./vite-plugin": {
+      "import": "./dist/vite-plugin/index.js",
+      "types": "./dist/vite-plugin/index.d.ts"
+    },
+    "./build": {
+      "import": "./dist/build/embed.js",
+      "types": "./dist/build/embed.d.ts"
+    }
+  },
+  "bin": {
+    "vokex": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "prebuilt/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
+  },
+  "peerDependencies": {
+    "vite": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "desktop",
+    "native",
+    "webview",
+    "electron-alternative",
+    "tauri-alternative",
+    "vite",
+    "lightweight"
+  ],
+  "license": "MIT"
+}
