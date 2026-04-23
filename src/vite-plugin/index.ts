@@ -22,7 +22,7 @@
 
 import type { Plugin, ResolvedConfig } from "vite";
 import { resolve, dirname } from "path";
-import { existsSync, writeFileSync } from "fs";
+import { existsSync, writeFileSync, mkdirSync, rmSync, cpSync } from "fs";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { spawn, type ChildProcess } from "child_process";
@@ -54,6 +54,8 @@ export interface VokexPluginOptions {
     decorations?: boolean;
     alwaysOnTop?: boolean;
     center?: boolean;
+    /** 应用图标路径 */
+    icon?: string;
   };
   /** 应用版本号 */
   version?: string;
@@ -126,6 +128,26 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
 
   // 获取壳路径
   const getShellPath = () => options.shellPath || getPrebuiltShellPath();
+
+  // 插件运行的目录如果没有public就创建一个
+  // 将 options 写入到 public 目录里 文件名叫 vokex-config.json。
+  const publicDir = resolve(process.cwd(), "public");
+  if (!existsSync(publicDir)) {
+    mkdirSync(publicDir, { recursive: true });
+  }
+  const configPath = resolve(publicDir, "vokex-config.json");
+  writeFileSync(configPath, JSON.stringify(options, null, 2), "utf-8");
+
+  // 将public直接复制到壳所在的位置 改名 为 devDist
+  const shellPath = getShellPath();
+  const shellDir = dirname(shellPath);
+  const devDistDir = resolve(shellDir, "devDist");
+  // 如果目标目录已存在，先删除
+  if (existsSync(devDistDir)) {
+    rmSync(devDistDir, { recursive: true, force: true });
+  }
+  // 复制 public 目录到壳所在位置，改名为 devDist
+  cpSync(publicDir, devDistDir, { recursive: true });
 
   // 获取输出路径
   const getOutputPath = () => {

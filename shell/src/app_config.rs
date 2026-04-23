@@ -1,14 +1,12 @@
 use std::sync::OnceLock;
 use serde::Deserialize;
-use crate::args_utils::{get_args, has_flag};
-use crate::Resources;
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct AppConfigSx {
-    pub dev_mode: bool,
     pub identifier: String,
     pub name: String,
     pub version: String,
+    pub icon: String,
     pub window: AppConfigWindowSx,
 }
 
@@ -22,7 +20,12 @@ pub struct AppConfigWindowSx {
 static GLOBAL_CONFIG: OnceLock<AppConfigSx> = OnceLock::new();
 
 pub fn init_app_config() {
-    let is_dev = has_flag("--dev") || get_args("--dev-url").is_some();
+    let exe_dir = std::env::current_exe()
+        .expect("Failed to get exe path")
+        .parent()
+        .expect("Failed to get exe directory")
+        .to_path_buf();
+    let is_dev = exe_dir.join("devDist").exists();
     
     let config = if is_dev {
         load_dev_config()
@@ -34,28 +37,23 @@ pub fn init_app_config() {
 }
 
 fn load_dev_config() -> AppConfigSx {
-    let config_json = get_args("--app-config")
-        .expect("--app-config is required in dev mode");
-    
+    // 读取壳目录下的 devDist/vokex-config.json
+    let config_path = std::env::current_exe()
+        .expect("Failed to get exe path")
+        .parent()
+        .expect("Failed to get exe directory")
+        .join("devDist")
+        .join("vokex-config.json");
+
+    let config_json = std::fs::read_to_string(&config_path)
+        .expect("Failed to read devDist/vokex-config.json");
+
     serde_json::from_str(&config_json)
-        .expect("Failed to parse --app-config JSON")
+        .expect("Failed to parse vokex-config.json")
 }
 
 fn load_prod_config() -> AppConfigSx {
-    let exe_path = std::env::current_exe()
-        .expect("Failed to get current exe path");
-    
-    let resources = Resources::load_from_exe(&exe_path)
-        .expect("Failed to load resources from exe");
-    
-    let config_bytes = resources.get(".vokex-cli-data.json")
-        .expect(".vokex-cli-data.json not found in resources");
-
-    let config_json = String::from_utf8(config_bytes.to_vec())
-        .expect(".vokex-cli-data.json is not valid UTF-8");
-
-    serde_json::from_str(&config_json)
-        .expect("Failed to parse vokex-cli-data.json")
+    AppConfigSx::default()
 }
 
 pub fn get_config() -> &'static AppConfigSx {

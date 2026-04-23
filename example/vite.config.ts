@@ -8,6 +8,7 @@ export default defineConfig({
       name: "Vokex Demo",
       identifier: "com.vokex.vokex",
       version: version,
+      icon: "icon/icon.png",
       window: {
         title: "Vokex App Demo",
         width: 1200,

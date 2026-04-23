@@ -10,6 +10,10 @@
 // 效果：debug 编译会有控制台方便看日志，release 编译只有窗口没有控制台
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_config;
+mod utils;
+use utils::load_image;
+
 // `use` = 引入其他模块的东西，类似 JS 的 import
 // 从 tao 库的 event 模块引入 Event（所有事件的枚举）和 WindowEvent（窗口事件的枚举）
 use tao::event::{Event, WindowEvent};
@@ -30,6 +34,15 @@ use wry::WebViewBuilder;
 
 // 程序入口函数
 fn main() {
+
+    // 初始化配置
+    app_config::init_app_config();
+    let app_config = app_config::get_config().clone();
+
+    println!("{:#?}", app_config);
+
+    
+
     // ============================================================
     // 第 1 步：创建事件循环
     // ============================================================
@@ -46,9 +59,11 @@ fn main() {
     //     LogicalSize = 逻辑像素（会自动适配高分屏缩放，比如 150% 缩放下实际是 1200x900 物理像素）
     //   .build(&event_loop) = 用事件循环来创建窗口（窗口需要事件循环才能接收事件）
     //   .unwrap() = 如果创建失败就 panic（正常情况不会失败）
+    let icon = load_image(app_config.icon);
     let window = WindowBuilder::new()
-        .with_title("Vokex")
-        .with_inner_size(tao::dpi::LogicalSize::new(800, 600))
+        .with_title(app_config.window.title)
+        .with_inner_size(tao::dpi::LogicalSize::new(app_config.window.width, app_config.window.height))
+        .with_window_icon(icon)
         .build(&event_loop)
         .unwrap();
 
