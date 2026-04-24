@@ -118,6 +118,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
     if let Some(module) = method.split('.').next() {
         match module {
             "app" => crate::apis::app::handle(method, params),
+            "fs" => crate::apis::fs::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {

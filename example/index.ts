@@ -200,7 +200,8 @@ document.getElementById("btn-fs-read")?.addEventListener("click", async () => {
   log("尝试读取 test.txt...");
 
   try {
-    const content = await fs.readFile("test_demo/test.txt");
+    const appPath = await app.getAppPath();
+    const content = await fs.readFile(`${appPath}\\test_demo\\test.txt`);
     log(`文件内容 (前 300 字符):\n---\n${content.slice(0, 300)}...\n---`);
     log(`文件总长度: ${content.length} 字符`);
   } catch (error: any) {
@@ -212,8 +213,8 @@ document.getElementById("btn-fs-read")?.addEventListener("click", async () => {
 document.getElementById("btn-fs-write")?.addEventListener("click", async () => {
   clear();
   log("=== 写入文件测试 ===");
-
-  const fileName = `test_demo/test_${Date.now()}.txt`;
+  const appPath = await app.getAppPath();
+  const fileName = `${appPath}/test_demo/test_${Date.now()}.txt`;
   const content = `Hello from Vokex!\nTimestamp: ${Date.now()}\n这是通过 fs.writeFile 写入的文件。`;
 
   try {
@@ -237,7 +238,8 @@ document.getElementById("btn-fs-readdir")?.addEventListener("click", async () =>
   log("当前目录内容:");
 
   try {
-    const entries = await fs.readDir(".");
+    const appPath = await app.getAppPath();
+    const entries = await fs.readDir(appPath);
     entries.forEach(entry => {
       const icon = entry.isDir ? "📁" : "📄";
       log(`  ${icon} ${entry.name}`);
@@ -253,7 +255,8 @@ document.getElementById("btn-fs-stat")?.addEventListener("click", async () => {
   log("=== 文件信息测试 ===");
 
   try {
-    const stat = await fs.stat("test_demo/test.txt");
+    const appPath = await app.getAppPath();
+    const stat = await fs.stat(appPath + "/test_demo/test.txt");
     log(`test_demo/test.txt:`);
     log(`  isFile: ${stat.isFile}`);
     log(`  isDir: ${stat.isDir}`);
@@ -268,8 +271,9 @@ document.getElementById("btn-fs-copy")?.addEventListener("click", async () => {
   clear();
   log("=== 复制文件测试 ===");
 
-  const src = "test_demo/test.txt";
-  const dest = "test_demo/test.txt.copy";
+  const appPath = await app.getAppPath();
+  const src = appPath + "/test_demo/test.txt";
+  const dest = appPath + "/test_demo/test.txt.copy";
 
   try {
     await fs.copyFile(src, dest);
@@ -287,7 +291,8 @@ document.getElementById("btn-fs-delete")?.addEventListener("click", async () => 
   clear();
   log("=== 删除文件测试 ===");
 
-  const fileName = "test_demo/test.txt";
+  const appPath = await app.getAppPath();
+  const fileName = appPath + "/test_demo/test.txt";
 
   try {
     const existsBefore = await fs.exists(fileName);
@@ -311,7 +316,8 @@ document.getElementById("btn-fs-rmdir")?.addEventListener("click", async () => {
   clear();
   log("=== 删除目录测试 ===");
 
-  const dirName = "test_demo";
+  const appPath = await app.getAppPath();
+  const dirName = appPath + "/test_demo";
 
   try {
     const existsBefore = await fs.exists(dirName);
@@ -337,9 +343,11 @@ document.getElementById("btn-fs-read-binary")?.addEventListener("click", async (
   log("尝试读取 test.txt...");
 
   try {
-    const data = await fs.readFileBinary("test_demo/test.txt");
-    log(`读取成功，字节长度: ${data.length}`);
-    log(`前 10 字节: [${Array.from(data.slice(0, 10)).join(', ')}]`);
+    const appPath = await app.getAppPath();
+    const data = await fs.readFileBinary(appPath + "/test_demo/test.txt");
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    log(`读取成功，字节长度: ${bytes.length}`);
+    log(`前 10 字节: [${Array.from(bytes.slice(0, 10)).join(', ')}]`);
   } catch (error: any) {
     log(`❌ 错误: ${error.message}`);
     log("提示: 请确保在正确的工作目录运行");
@@ -350,7 +358,8 @@ document.getElementById("btn-fs-append")?.addEventListener("click", async () => 
   clear();
   log("=== 追加内容测试 ===");
 
-  const fileName = "test_demo/test.txt";
+  const appPath = await app.getAppPath();
+  const fileName = appPath + "/test_demo/test.txt";
   const appendContent = `\n[追加] 这是追加的一行\n时间戳: ${Date.now()}\n`;
 
   try {
@@ -381,8 +390,9 @@ document.getElementById("btn-fs-move")?.addEventListener("click", async () => {
   clear();
   log("=== 移动/重命名文件测试 ===");
 
-  const src = "test_demo/test.txt";
-  const dest = "test_demo/test_renamed.txt";
+  const appPath = await app.getAppPath();
+  const src = appPath + "/test_demo/test.txt";
+  const dest = appPath + "/test_demo/test_renamed.txt";
 
   try {
     const srcExists = await fs.exists(src);

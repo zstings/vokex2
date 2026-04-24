@@ -418,7 +418,7 @@ export interface FsAPI {
   /** 读取文本文件 */
   readFile: (path: string) => Promise<string>;
   /** 读取二进制文件 */
-  readFileBinary: (path: string) => Promise<Uint8Array>;
+  readFileBinary: (path: string) => Promise<string>;
   /** 写入文本文件 */
   writeFile: (path: string, data: string) => Promise<void>;
   /** 追加内容到文件 */
@@ -439,8 +439,6 @@ export interface FsAPI {
   copyFile: (source: string, destination: string) => Promise<void>;
   /** 移动/重命名文件 */
   moveFile: (source: string, destination: string) => Promise<void>;
-  /** 监听文件/目录变化 */
-  watch: (path: string) => any;
 }
 
 /**
@@ -448,43 +446,40 @@ export interface FsAPI {
  */
 export const fs: FsAPI = {
   /** 读取文本文件 */
-  readFile: (path: string): Promise<string> => vokexCall('fs.readFile', [path]),
+  readFile: (path: string): Promise<string> => vokexCall('fs.readFile', { path }),
 
   /** 读取二进制文件 */
-  readFileBinary: (path: string): Promise<Uint8Array> => vokexCall('fs.readFileBinary', [path]),
+  readFileBinary: (path: string): Promise<string> => vokexCall('fs.readFileBinary', { path }),
 
   /** 写入文本文件 */
-  writeFile: (path: string, data: string): Promise<void> => vokexCall('fs.writeFile', [path, data]),
+  writeFile: (path: string, data: string): Promise<void> => vokexCall('fs.writeFile', { path, data }),
 
   /** 追加内容到文件 */
-  appendFile: (path: string, data: string): Promise<void> => vokexCall('fs.appendFile', [path, data]),
+  appendFile: (path: string, data: string): Promise<void> => vokexCall('fs.appendFile', { path, data }),
 
   /** 删除文件 */
-  deleteFile: (path: string): Promise<void> => vokexCall('fs.deleteFile', [path]),
+  deleteFile: (path: string): Promise<void> => vokexCall('fs.deleteFile', { path }),
 
   /** 读取目录内容 */
-  readDir: (path: string): Promise<DirEntry[]> => vokexCall('fs.readDir', [path]),
+  readDir: (path: string): Promise<DirEntry[]> => vokexCall('fs.readDir', { path }),
 
   /** 创建目录（支持递归创建） */
-  createDir: (path: string): Promise<void> => vokexCall('fs.createDir', [path]),
+  createDir: (path: string): Promise<void> => vokexCall('fs.createDir', { path }),
 
   /** 删除目录（支持递归删除） */
-  removeDir: (path: string): Promise<void> => vokexCall('fs.removeDir', [path]),
+  removeDir: (path: string): Promise<void> => vokexCall('fs.removeDir', { path }),
 
   /** 获取文件/目录信息 */
-  stat: (path: string): Promise<FileInfo> => vokexCall('fs.stat', [path]),
+  stat: (path: string): Promise<FileInfo> => vokexCall('fs.stat', { path }),
 
   /** 检查路径是否存在 */
-  exists: (path: string): Promise<boolean> => vokexCall('fs.exists', [path]),
+  exists: (path: string): Promise<boolean> => vokexCall('fs.exists', { path }),
 
   /** 复制文件 */
-  copyFile: (source: string, destination: string): Promise<void> => vokexCall('fs.copyFile', [source, destination]),
+  copyFile: (source: string, destination: string): Promise<void> => vokexCall('fs.copyFile', { source, destination }),
 
   /** 移动/重命名文件 */
-  moveFile: (source: string, destination: string): Promise<void> => vokexCall('fs.moveFile', [source, destination]),
-
-  /** 监听文件/目录变化 */
-  watch: (path: string): any => vokexCall('fs.watch', [path]),
+  moveFile: (source: string, destination: string): Promise<void> => vokexCall('fs.moveFile', { source, destination }),
 };
 
 /**
