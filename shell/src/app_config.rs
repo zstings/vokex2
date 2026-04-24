@@ -20,24 +20,16 @@ pub struct AppConfigWindowSx {
 static GLOBAL_CONFIG: OnceLock<AppConfigSx> = OnceLock::new();
 
 pub fn init_app_config() {
-    let exe_dir = std::env::current_exe()
-        .expect("Failed to get exe path")
-        .parent()
-        .expect("Failed to get exe directory")
-        .to_path_buf();
-    let is_dev = exe_dir.join("vokex-config.json").exists();
-    
-    let config = if is_dev {
-        load_dev_config()
-    } else {
-        load_prod_config()
-    };
+    let is_dev = cfg!(debug_assertions);
+
+    let config = load_config();
     
     GLOBAL_CONFIG.set(config).expect("Failed to initialize app config");
 }
 
-fn load_dev_config() -> AppConfigSx {
-    // 读取壳目录下的 devDist/vokex-config.json
+#[cfg(debug_assertions)]
+fn load_config() -> AppConfigSx {
+    // 读取壳目录下的 vokex-config.json
     let config_path = std::env::current_exe()
         .expect("Failed to get exe path")
         .parent()
@@ -51,7 +43,8 @@ fn load_dev_config() -> AppConfigSx {
         .expect("Failed to parse vokex-config.json")
 }
 
-fn load_prod_config() -> AppConfigSx {
+#[cfg(not(debug_assertions))]
+fn load_config() -> AppConfigSx {
     AppConfigSx::default()
 }
 
