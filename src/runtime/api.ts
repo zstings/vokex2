@@ -4,15 +4,8 @@
  * 提供类似 import { os } from 'vokex' 的调用方式
  */
 
-// 内部调用函数
-function vokexCall(method: string, params: object = {}): Promise<any> {
-  const vokex = (window as any).__VOKEX__;
-  if (!vokex?.call) {
-    console.warn(`[vokex] 此 API 仅在原生模式下可用`);
-    return Promise.resolve(undefined);
-  }
-  return vokex.call(method, params);
-}
+import vokexCall from "./apis/vokexCall";
+import { events } from "./apis/events";
 
 /**
  * 窗口选项
@@ -385,102 +378,8 @@ export const browserWindow = {
   },
 };
 
-/**
- * DirEntry 目录项
- */
-export interface DirEntry {
-  /** 文件名 */
-  name: string;
-  /** 完整路径 */
-  path: string;
-  /** 是否是目录 */
-  isDir: boolean;
-}
 
-/**
- * FileInfo 文件信息
- */
-export interface FileInfo {
-  /** 是否是文件 */
-  isFile: boolean;
-  /** 是否是目录 */
-  isDir: boolean;
-  /** 文件大小（字节） */
-  size: number;
-  /** 最后修改时间（距现在秒数） */
-  modified?: number;
-}
 
-/**
- * 文件系统 API 接口
- */
-export interface FsAPI {
-  /** 读取文本文件 */
-  readFile: (path: string) => Promise<string>;
-  /** 读取二进制文件 */
-  readFileBinary: (path: string) => Promise<string>;
-  /** 写入文本文件 */
-  writeFile: (path: string, data: string) => Promise<void>;
-  /** 追加内容到文件 */
-  appendFile: (path: string, data: string) => Promise<void>;
-  /** 删除文件 */
-  deleteFile: (path: string) => Promise<void>;
-  /** 读取目录内容 */
-  readDir: (path: string) => Promise<DirEntry[]>;
-  /** 创建目录（支持递归创建） */
-  createDir: (path: string) => Promise<void>;
-  /** 删除目录（支持递归删除） */
-  removeDir: (path: string) => Promise<void>;
-  /** 获取文件/目录信息 */
-  stat: (path: string) => Promise<FileInfo>;
-  /** 检查路径是否存在 */
-  exists: (path: string) => Promise<boolean>;
-  /** 复制文件 */
-  copyFile: (source: string, destination: string) => Promise<void>;
-  /** 移动/重命名文件 */
-  moveFile: (source: string, destination: string) => Promise<void>;
-}
-
-/**
- * 文件系统相关 API
- */
-export const fs: FsAPI = {
-  /** 读取文本文件 */
-  readFile: (path: string): Promise<string> => vokexCall('fs.readFile', { path }),
-
-  /** 读取二进制文件 */
-  readFileBinary: (path: string): Promise<string> => vokexCall('fs.readFileBinary', { path }),
-
-  /** 写入文本文件 */
-  writeFile: (path: string, data: string): Promise<void> => vokexCall('fs.writeFile', { path, data }),
-
-  /** 追加内容到文件 */
-  appendFile: (path: string, data: string): Promise<void> => vokexCall('fs.appendFile', { path, data }),
-
-  /** 删除文件 */
-  deleteFile: (path: string): Promise<void> => vokexCall('fs.deleteFile', { path }),
-
-  /** 读取目录内容 */
-  readDir: (path: string): Promise<DirEntry[]> => vokexCall('fs.readDir', { path }),
-
-  /** 创建目录（支持递归创建） */
-  createDir: (path: string): Promise<void> => vokexCall('fs.createDir', { path }),
-
-  /** 删除目录（支持递归删除） */
-  removeDir: (path: string): Promise<void> => vokexCall('fs.removeDir', { path }),
-
-  /** 获取文件/目录信息 */
-  stat: (path: string): Promise<FileInfo> => vokexCall('fs.stat', { path }),
-
-  /** 检查路径是否存在 */
-  exists: (path: string): Promise<boolean> => vokexCall('fs.exists', { path }),
-
-  /** 复制文件 */
-  copyFile: (source: string, destination: string): Promise<void> => vokexCall('fs.copyFile', { source, destination }),
-
-  /** 移动/重命名文件 */
-  moveFile: (source: string, destination: string): Promise<void> => vokexCall('fs.moveFile', { source, destination }),
-};
 
 /**
  * ProxyConfig 接口
@@ -491,154 +390,9 @@ export interface ProxyConfig {
   proxyBypassRules?: string;
 }
 
-/**
- * App 事件类型
- */
-export type AppEvent = 'ready' | 'window-all-closed' | 'before-quit' | 'second-instance' | 'activate';
 
-/**
- * App API 接口
- */
-export interface AppAPI {
-  /** 退出应用 */
-  quit: () => Promise<void>;
-  /** 立即退出应用，不触发生命周期事件 */
-  exit: (code?: number) => Promise<void>;
-  /** 重启应用 */
-  restart: () => Promise<void>;
-  /** 获取应用安装目录路径 */
-  getAppPath: () => Promise<string>;
-  /**
-   * 获取系统特殊目录路径
-   * @param name 目录名称：home | appData | desktop | documents | downloads | temp
-   */
-  getPath: (name: "home" | "appData" | "desktop" | "documents" | "downloads" | "temp") => Promise<string>;
-  /** 获取应用版本号（来自 vokex-config.json） */
-  getVersion: () => Promise<string>;
-  /** 获取应用名称（来自 vokex-config.json） */
-  getName: () => Promise<string>;
-  /** 获取应用标识符（来自 vokex-config.json） */
-  getIdentifier: () => Promise<string>;
-  /** 获取系统语言标识，如 zh-CN、en-US */
-  getLocale: () => Promise<string>;
-  /** 获取当前进程 PID */
-  getPid: () => Promise<number>;
-  /** 获取命令行参数数组 */
-  getArgv: () => Promise<string[]>;
-  /**
-   * 获取环境变量值
-   * @param key 环境变量名称，如 PATH、HOME
-   */
-  getEnv: (key: string) => Promise<string>;
-  /** 获取操作系统类型，如 windows、linux、macos */
-  getPlatform: () => Promise<string>;
-  /** 获取系统架构，如 x86_64、aarch64 */
-  getArch: () => Promise<string>;
-  // /** 设置 macOS Dock 图标徽标 */
-  // setDockBadge: (text: string) => Promise<void>;
-  /** 请求单实例锁，防止重复启动 */
-  requestSingleInstanceLock: () => Promise<boolean>;
-  // /** 设置应用代理 */
-  // setProxy: (config: ProxyConfig) => Promise<void>;
-  /** 监听应用事件 */
-  on: (event: AppEvent, callback: (data?: any) => void) => void;
-}
 
-/**
- * 应用相关 API
- */
-export const app: AppAPI = {
-  /**
-   * 退出应用
-   */
-  quit: (): Promise<void> => vokexCall('app.quit'),
 
-  /**
-   * 立即退出应用，不触发生命周期事件
-   * @param code 退出码，默认 0
-   */
-  exit: (code?: number): Promise<void> => vokexCall('app.exit', { code }),
-
-  /**
-   * 重启应用
-   */
-  restart: (): Promise<void> => vokexCall('app.restart'),
-
-  /**
-   * 获取应用安装目录路径
-   */
-  getAppPath: (): Promise<string> => vokexCall('app.getAppPath'),
-
-  /**
-   * 获取系统特殊目录路径
-   * @param name 目录名：home | appData | desktop | documents | downloads | temp
-   */
-  getPath: (name: string): Promise<string> => vokexCall('app.getPath', { name }),
-
-  /**
-   * 获取应用版本号（来自 vokex-config.json）
-   */
-  getVersion: (): Promise<string> => vokexCall('app.getVersion'),
-
-  /**
-   * 获取应用名称（来自 vokex-config.json）
-   */
-  getName: (): Promise<string> => vokexCall('app.getName'),
-
-  /**
-   * 获取应用标识符（来自 vokex-config.json）
-   */
-  getIdentifier: (): Promise<string> => vokexCall('app.getIdentifier'),
-
-  /**
-   * 获取系统语言标识，如 zh-CN、en-US
-   */
-  getLocale: (): Promise<string> => vokexCall('app.getLocale'),
-
-  /**
-   * 获取当前进程 PID
-   */
-  getPid: (): Promise<number> => vokexCall('app.getPid'),
-
-  /**
-   * 获取命令行参数数组
-   */
-  getArgv: (): Promise<string[]> => vokexCall('app.getArgv'),
-
-  /**
-   * 获取环境变量值
-   * @param key 环境变量名称，如 PATH、HOME
-   */
-  getEnv: (key: string): Promise<string> => vokexCall('app.getEnv', { key }),
-
-  /**
-   * 获取操作系统类型，如 windows、linux、macos
-   */
-  getPlatform: (): Promise<string> => vokexCall('app.getPlatform'),
-
-  /**
-   * 获取系统架构，如 x86_64、aarch64
-   */
-  getArch: (): Promise<string> => vokexCall('app.getArch'),
-
-  // /** 设置 macOS Dock 图标徽标 */
-  // setDockBadge: (text: string): Promise<void> => vokexCall('app.setDockBadge', { text }),
-
-  /** 请求单实例锁，防止重复启动 */
-  requestSingleInstanceLock: (): Promise<boolean> => vokexCall('app.requestSingleInstanceLock'),
-
-  // /** 设置应用代理 */
-  // setProxy: (config: ProxyConfig): Promise<void> => vokexCall('app.setProxy', { config }),
-
-  /**
-   * 监听应用事件
-   * @param event 事件名：ready | window-all-closed | before-quit | second-instance | activate
-   * @param callback 事件回调函数
-   */
-  on: (event: 'ready' | 'window-all-closed' | 'before-quit' | 'second-instance' | 'activate', callback: (data?: any) => void): void => {
-    events.on(`app.${event}`, callback);
-  },
-};
 
 /**
  * CpuUsage 进程 CPU 使用率
@@ -1155,42 +909,6 @@ export const notification = {
 };
 
 /**
- * 事件监听相关 API
- */
-export const events = {
-  /**
-   * 监听事件
-   */
-  on: (event: string, listener: (data: any) => void): (() => void) => {
-    const vokex = (window as any).__VOKEX__;
-    if (vokex?.on) {
-      return vokex.on(event, listener);
-    }
-    return () => {};
-  },
-
-  /**
-   * 取消监听事件
-   */
-  off: (event: string, listener: (data: any) => void): void => {
-    const vokex = (window as any).__VOKEX__;
-    if (vokex?.off) {
-      vokex.off(event, listener);
-    }
-  },
-
-  /**
-   * 触发事件（内部使用）
-   */
-  emit: (event: string, data?: any): void => {
-    const vokex = (window as any).__VOKEX__;
-    if (vokex?.__emit__) {
-      vokex.__emit__(event, data);
-    }
-  },
-};
-
-/**
  * 底层调用（兼容旧版 API）
  */
 export const call = (method: string, args: any[] = []): Promise<any> => {
@@ -1414,4 +1132,7 @@ export const http: HttpAPI = {
   },
 };
 
+export { app } from './apis/app';
+export { events } from './apis/events';
 export { storage } from './apis/storage';
+export { fs } from './apis/fs';
