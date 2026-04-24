@@ -12,7 +12,7 @@
 
 mod app_config;
 mod utils;
-use utils::load_image;
+use utils::{load_image, get_webview_data_dir};
 
 // `use` = 引入其他模块的东西，类似 JS 的 import
 // 从 tao 库的 event 模块引入 Event（所有事件的枚举）和 WindowEvent（窗口事件的枚举）
@@ -50,15 +50,7 @@ fn main() {
     // 它是整个程序的"心脏"，所有 GUI 程序都必须有一个
     let event_loop = EventLoop::new();
 
-    // ============================================================
-    // 第 2 步：创建窗口
-    // ============================================================
-    // WindowBuilder::new() = 创建一个窗口构建器（默认配置）
-    //   .with_title("Vokex") = 设置窗口标题栏文字为 "Vokex"
-    //   .with_inner_size(...) = 设置窗口内容区域大小为 800x600 逻辑像素
-    //     LogicalSize = 逻辑像素（会自动适配高分屏缩放，比如 150% 缩放下实际是 1200x900 物理像素）
-    //   .build(&event_loop) = 用事件循环来创建窗口（窗口需要事件循环才能接收事件）
-    //   .unwrap() = 如果创建失败就 panic（正常情况不会失败）
+    // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
     let icon = load_image(app_config.icon);
     let window = WindowBuilder::new()
         .with_title(app_config.window.title)
@@ -66,53 +58,15 @@ fn main() {
         .with_window_icon(icon)
         .build(&event_loop)
         .unwrap();
-
-    // ============================================================
-    // 第 3 步：创建 WebView（在窗口里嵌入浏览器）
-    // ============================================================
-    // WebViewBuilder::new() = 创建一个 WebView 构建器
-    //   .with_url("vokex://index.html") = 加载的地址
-    //     注意：这里用的是自定义协议 "vokex://"，不是 "http://"
-    //     浏览器不知道怎么处理 "vokex://"，所以需要下面注册自定义协议来处理
-    //
-    //   .with_custom_protocol("vokex".to_string(), |_request| { ... }) = 注册自定义协议
-    //     当 WebView 请求 "vokex://xxx" 时，会调用这个闭包（匿名函数）来生成响应
-    //     |_request| = 请求参数，用 _ 开头表示"我不关心这个参数"
-    //     闭包返回一个 HTTP Response，包含 HTML 内容
-    //
-    //   .with_devtools(true) = 允许打开开发者工具（按 F12），方便调试
-    //   .build(&window) = 把 WebView 绑定到刚才创建的窗口上
-    let _webview = WebViewBuilder::new()
-        .with_url(" http://localhost:5173/")
-        .with_custom_protocol("vokex".to_string(), |_request, _webview_id| {
-            // r#"..."# = Rust 的原始字符串，里面的内容不需要转义（可以直接写 HTML、引号、反斜杠等）
-            let html = r#"<!DOCTYPE html>
-                <html>
-                <head><meta charset="UTF-8"><title>Vokex</title></head>
-                <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#1a1a2e;color:#e0e0e0">
-                <div style="text-align:center">
-                    <h1>Vokex</h1>
-                    <p>tao 0.35 + wry 0.55</p>
-                </div>
-                </body>
-                </html>"#;
-            // 构造 HTTP 响应
-            //   Response::builder() = 创建响应构建器
-            //   .header("Content-Type", "text/html; charset=utf-8") = 告诉浏览器这是 HTML 文件，编码是 UTF-8
-            //   .body(html.as_bytes().to_vec().into()) = 把 HTML 字符串放入响应体
-            //   .unwrap() = 构建失败就 panic（正常不会失败）
-            Response::builder()
-                .header("Content-Type", "text/html; charset=utf-8")
-                .body(html.as_bytes().to_vec().into())
-                .unwrap()
-        })
+    // 创建 WebView（URL、协议、数据目录 → WebViewBuilder）
+    let data_dir = get_webview_data_dir(&app_config.identifier);
+    let mut web_context = wry::WebContext::new(Some(data_dir));
+    // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
+    let _webview = wry::WebViewBuilder::new_with_web_context(&mut web_context)
+        .with_url("http://localhost:5173/")
         .with_devtools(true)
         .build(&window)
         .unwrap();
-
-    // 注意：webview 变量没有被使用，但必须保存它
-    // 因为 webview 被 drop（销毁）时，WebView 也会被销毁
-    // 如果不保存，WebView 会立即消失，窗口变成空白
 
     // ============================================================
     // 第 4 步：运行事件循环

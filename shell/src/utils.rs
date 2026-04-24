@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 
 pub fn get_args(name: &str) -> Option<String> {
     let args: Vec<String> = env::args().collect();
@@ -20,6 +21,7 @@ pub fn has_flag(name: &str) -> bool {
     args.iter().any(|arg| arg == name)
 }
 
+// 通过图片路径加载图片为icon对象 只支持png格式
 pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
     let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
     let full_path = exe_dir.join("devDist").join(&icon_path);
@@ -50,4 +52,15 @@ pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
     };
     
     tao::window::Icon::from_rgba(rgba, info.width, info.height).ok()
+}
+
+// 根据 identifier 创建 WebView 数据目录
+pub fn get_webview_data_dir(identifier: &str) -> PathBuf {
+    let local_appdata = std::env::var("LOCALAPPDATA")
+        .unwrap_or_else(|_| {
+            std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+        });
+    let data_dir = PathBuf::from(local_appdata).join(identifier);
+    std::fs::create_dir_all(&data_dir).ok();
+    data_dir
 }
