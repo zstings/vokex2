@@ -22,6 +22,7 @@ pub fn has_flag(name: &str) -> bool {
 }
 
 // 通过图片路径加载图片为icon对象 只支持png格式
+#[cfg(debug_assertions)]
 pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
     let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
     let full_path = exe_dir.join(&icon_path);
@@ -44,6 +45,29 @@ pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
                 rgba.push(chunk[0]);
                 rgba.push(chunk[1]);
                 rgba.push(chunk[2]);
+                rgba.push(255);
+            }
+            rgba
+        }
+        _ => return None,
+    };
+    
+    tao::window::Icon::from_rgba(rgba, info.width, info.height).ok()
+}
+#[cfg(not(debug_assertions))]
+pub fn load_image(png_data: &[u8]) -> Option<tao::window::Icon> {
+    let decoder = png::Decoder::new(std::io::Cursor::new(png_data));
+    let mut reader = decoder.read_info().ok()?;
+    let mut buf = vec![0u8; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).ok()?;
+    
+    let rgba = match info.color_type {
+        png::ColorType::Rgba => buf[..info.buffer_size()].to_vec(),
+        png::ColorType::Rgb => {
+            let rgb = &buf[..info.buffer_size()];
+            let mut rgba = Vec::with_capacity(rgb.len() / 3 * 4);
+            for chunk in rgb.chunks(3) {
+                rgba.extend_from_slice(chunk);
                 rgba.push(255);
             }
             rgba

@@ -8,7 +8,7 @@
 // `not(debug_assertions)` = 如果不是 debug 模式（即 release 模式）
 // `windows_subsystem = "windows"` = 告诉 Windows：这是窗口程序，不要弹黑框控制台
 // 效果：debug 编译会有控制台方便看日志，release 编译只有窗口没有控制台
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_config;
 mod utils;
@@ -127,6 +127,15 @@ fn main() {
 
     println!("{:#?}", app_config);
 
+    // release 模式：提前加载 Resources（图标和 custom protocol 都需要）
+    #[cfg(not(debug_assertions))]
+    let resources = {
+        let exe_path = std::env::current_exe().expect("Failed to get exe path");
+        let res = Resources::load_from_exe(&exe_path)
+            .expect("Failed to load resources from exe");
+        std::sync::Arc::new(res)
+    };
+
     
 
     // ============================================================
@@ -139,7 +148,12 @@ fn main() {
     ipc::set_proxy(proxy.clone());
 
     // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
-    let icon = load_image(app_config.icon);
+    let icon = {
+        #[cfg(debug_assertions)]
+        { load_image(app_config.icon) }
+        #[cfg(not(debug_assertions))]
+        { resources.get(&app_config.icon).and_then(|data| load_image(data)) }
+    };
     let window = WindowBuilder::new()
         .with_title(app_config.window.title)
         .with_inner_size(tao::dpi::LogicalSize::new(app_config.window.width, app_config.window.height))
@@ -163,18 +177,15 @@ fn main() {
     // 正式模式：注册自定义协议，加载嵌入的资源
     #[cfg(not(debug_assertions))]
     let webview_builder = {
-        let exe_path = std::env::current_exe().expect("Failed to get exe path");
-        let resources = Resources::load_from_exe(&exe_path)
-            .expect("Failed to load resources from exe");
-        let resources = std::sync::Arc::new(resources);
+        let resources = resources.clone();
 
         webview_builder.with_custom_protocol(
             "vokex".to_string(),
-            move |url, _webview_id| {
+            move |_webview_id, request| {
                 // url 是字符串，比如 "vokex://index.html" 或 "vokex://assets/style.css"
-                let path = url.strip_prefix("vokex://")
-                    .unwrap_or("index.html")
-                    .trim_start_matches('/');
+                let uri = request.uri();
+                let path = uri.path().trim_start_matches('/');
+                let path = if path.is_empty() { "index.html" } else { path };
         
                 if let Some(content) = resources.get(path) {
                     let mime = mime_guess::from_path(path)
