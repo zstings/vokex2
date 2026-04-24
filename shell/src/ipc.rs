@@ -38,6 +38,22 @@ pub fn handle_message(window_id: u32, request: wry::http::Request<String>) {
     });
 }
 
+/// 判断是否为耗时 API（需要在线程池中执行）
+fn is_async_api(method: &str) -> bool {
+    matches!(
+        method,
+        "fs.readFile" | "fs.readFileBinary" | "fs.writeFile" |
+        "fs.appendFile" | "fs.deleteFile" | "fs.readDir" |
+        "fs.createDir" | "fs.removeDir" | "fs.stat" |
+        "fs.exists" | "fs.copyFile" | "fs.moveFile" |
+        "http.request" | "http.get" | "http.post" |
+        "http.put" | "http.delete" |
+        "shell.execCommand" |
+        "computer.getCpuInfo" | "computer.getMemoryInfo" |
+        "computer.getOsInfo" | "computer.getDisplays"
+    )
+}
+
 pub fn process_request(window_id: u32, body: &str) {
     let req: IpcRequest = match serde_json::from_str(body) {
         Ok(r) => r,
@@ -49,11 +65,46 @@ pub fn process_request(window_id: u32, body: &str) {
 
     eprintln!("[IPC] window_id={}, method={}", window_id, req.method);
 
-    let response = match dispatch(&req.method, &req.params) {
-        Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
-        Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
-    };
+    if is_async_api(&req.method) {
+        // 异步 API：在线程中执行，结果通过 proxy 回主线程
+        let proxy = PROXY.with(|p| p.borrow().as_ref().map(|p| p.clone()));
+        let method = req.method.clone();
+        let params = req.params.clone();
 
+        std::thread::spawn(move || {
+            let response = match dispatch(&method, &params) {
+                Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
+                Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
+            };
+
+            if let Some(proxy) = proxy {
+                let _ = proxy.send_event(crate::IpcTask::HandleAsyncResponse {
+                    window_id,
+                    id: response.id,
+                    result: response.result,
+                    error: response.error,
+                });
+            }
+        });
+    } else {
+        // 同步 API：直接在主线程执行
+        let response = match dispatch(&req.method, &req.params) {
+            Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
+            Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
+        };
+
+        let json = serde_json::to_string(&response).unwrap_or_default();
+        let script = format!(
+            "window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})",
+            json
+        );
+        crate::window_manager::eval(window_id, &script);
+    }
+}
+
+/// 处理异步 API 的返回结果（在主线程执行）
+pub fn resolve_async_response(window_id: u32, id: u64, result: Option<serde_json::Value>, error: Option<String>) {
+    let response = IpcResponse { id, result, error };
     let json = serde_json::to_string(&response).unwrap_or_default();
     let script = format!(
         "window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})",

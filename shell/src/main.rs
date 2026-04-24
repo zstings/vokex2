@@ -113,6 +113,7 @@ impl Resources {
 #[derive(Debug, Clone)]
 enum IpcTask {
     HandleRequest { window_id: u32, body: String },
+    HandleAsyncResponse { window_id: u32, id: u64, result: Option<serde_json::Value>, error: Option<String> },
 }
 
 // 程序入口函数
@@ -225,6 +226,10 @@ fn main() {
             
             Event::UserEvent(IpcTask::HandleRequest { window_id, body }) => {
                 ipc::process_request(window_id, &body);
+            }
+
+            Event::UserEvent(IpcTask::HandleAsyncResponse { window_id, id, result, error }) => {
+                ipc::resolve_async_response(window_id, id, result, error);
             }
 
             // _ = 其他所有事件，不处理（忽略）
