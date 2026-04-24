@@ -94,6 +94,7 @@ fn get_path(params: &serde_json::Value) -> Result<serde_json::Value, String> {
         "documents" => dirs::document_dir(),
         "downloads" => dirs::download_dir(),
         "temp" => Some(std::env::temp_dir()),
+        "cwd" => std::env::current_dir().ok(),
         _ => return Err(format!("Unknown path name: {}", name)),
     };
     

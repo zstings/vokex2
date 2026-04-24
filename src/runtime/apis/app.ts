@@ -20,7 +20,7 @@ export interface AppAPI {
    * 获取系统特殊目录路径
    * @param name 目录名称：home | appData | desktop | documents | downloads | temp
    */
-  getPath: (name: "home" | "appData" | "desktop" | "documents" | "downloads" | "temp") => Promise<string>;
+  getPath: (name: "home" | "appData" | "desktop" | "documents" | "downloads" | "temp" | "cwd") => Promise<string>;
   /** 获取应用版本号（来自 vokex-config.json） */
   getVersion: () => Promise<string>;
   /** 获取应用名称（来自 vokex-config.json） */

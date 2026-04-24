@@ -1,4 +1,4 @@
-import { shell, fs, process } from "vokex";
+import { shell, fs, app } from "vokex";
 
 import { log, clear } from './utils'
 
@@ -18,7 +18,7 @@ document.getElementById("btn-shell-openpath")?.addEventListener("click", async (
   clear();
   log("=== shell.openPath 测试 ===");
   try {
-    const cwd = await process.cwd();
+    const cwd = await app.getPath("cwd");
     log(`正在用文件管理器打开: ${cwd}`);
     await shell.openPath(cwd);
     log("✅ 已请求打开目录");

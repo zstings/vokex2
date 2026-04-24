@@ -48,6 +48,7 @@ document
         "documents",
         "downloads",
         "temp",
+        "cwd"
       ] as const;
       for (const name of paths) {
         const path = await app.getPath(name);
