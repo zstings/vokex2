@@ -80,43 +80,80 @@ fn dispatch(method: &str, _params: &serde_json::Value) -> Result<serde_json::Val
     }
 }
 
+/// 向指定窗口推送事件
+pub fn emit(window_id: u32, event: &str, data: serde_json::Value) {
+    let event_escaped = event.replace('\\', "\\\\").replace('\'', "\\'");
+    let data_json = serde_json::to_string(&data).unwrap_or("null".to_string());
+    let script = format!(
+        "window.__VOKEX__ && window.__VOKEX__.__emit__('{}', {})",
+        event_escaped, data_json
+    );
+    crate::window_manager::eval(window_id, &script);
+}
+
+/// 向所有窗口推送事件
+pub fn emit_all(event: &str, data: serde_json::Value) {
+    let event_escaped = event.replace('\\', "\\\\").replace('\'', "\\'");
+    let data_json = serde_json::to_string(&data).unwrap_or("null".to_string());
+    let script = format!(
+        "window.__VOKEX__ && window.__VOKEX__.__emit__('{}', {})",
+        event_escaped, data_json
+    );
+    crate::window_manager::eval_all(&script);
+}
+
 pub fn get_init_script(window_id: u32) -> String {
-    format!(r#"
-    (function() {{
+    r#"
+    (function() {
         var _pendingCalls = new Map();
         var _callId = 0;
-        var _windowId = {};
+        var _windowId = __WINDOW_ID__;
 
-        window.__VOKEX__ = {{
+        window.__VOKEX__ = {
             __windowId__: _windowId,
-            call: function(method, params) {{
+            call: function(method, params) {
                 var id = ++_callId;
-                return new Promise(function(resolve, reject) {{
-                    _pendingCalls.set(id, {{ resolve: resolve, reject: reject }});
-                    window.ipc.postMessage(JSON.stringify({{
+                return new Promise(function(resolve, reject) {
+                    _pendingCalls.set(id, { resolve: resolve, reject: reject });
+                    window.ipc.postMessage(JSON.stringify({
                         id: id,
                         method: method,
-                        params: params || {{}},
+                        params: params || {},
                         windowId: _windowId
-                    }}));
-                }});
-            }},
-            on: function(event, listener) {{}},
-            off: function(event, listener) {{}},
-            __emit__: function(event, data) {{}}
-        }};
+                    }));
+                });
+            },
+            on: function(event, listener) {
+                if (!this.__eventListeners) this.__eventListeners = {};
+                if (!this.__eventListeners[event]) this.__eventListeners[event] = [];
+                this.__eventListeners[event].push(listener);
+                return listener;
+            },
+            off: function(event, listener) {
+                if (!this.__eventListeners || !this.__eventListeners[event]) return;
+                this.__eventListeners[event] = this.__eventListeners[event].filter(function(l) { return l !== listener; });
+            },
+            __emit__: function(event, data) {
+                if (!this.__eventListeners || !this.__eventListeners[event]) return;
+                var listeners = this.__eventListeners[event];
+                for (var i = 0; i < listeners.length; i++) {
+                    try { listeners[i](data); } catch(e) { console.error('Event listener error:', e); }
+                }
+            }
+        };
 
-        window.__VOKEX_IPC__ = function(response) {{
+        window.__VOKEX_IPC__ = function(response) {
             var callback = _pendingCalls.get(response.id);
-            if (callback) {{
+            if (callback) {
                 _pendingCalls.delete(response.id);
-                if (response.error) {{
+                if (response.error) {
                     callback.reject(new Error(response.error));
-                }} else {{
+                } else {
                     callback.resolve(response.result);
-                }}
-            }}
-        }};
-    }})();
-    "#, window_id)
+                }
+            }
+        };
+    })();
+    "#
+    .replace("__WINDOW_ID__", &window_id.to_string())
 }
