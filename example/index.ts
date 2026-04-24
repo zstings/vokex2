@@ -25,6 +25,7 @@ document.getElementById("btn-app-info")?.addEventListener("click", async () => {
   try {
     const name = await app.getName();
     const version = await app.getVersion();
+    console.log(name, version);
     log(`应用名称: ${name}`);
     log(`应用版本: ${version}`);
   } catch (error: any) {

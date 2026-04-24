@@ -12,6 +12,7 @@
 
 mod app_config;
 mod utils;
+mod ipc;
 use utils::{load_image, get_webview_data_dir};
 
 use std::io::{self, Read, Seek, SeekFrom};
@@ -139,12 +140,16 @@ fn main() {
     let mut web_context = wry::WebContext::new(Some(data_dir));
     // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
     let url = app_config.dev_url.unwrap_or_else(|| "vokex://index.html".to_string());
-    let mut webview_builder = wry::WebViewBuilder::new_with_web_context(&mut web_context)
+    let webview_builder = wry::WebViewBuilder::new_with_web_context(&mut web_context)
         .with_url(url)
-        .with_devtools(true);
+        .with_devtools(true)
+        .with_ipc_handler(|message| {
+            ipc::handle_message(message);
+        })
+        .with_initialization_script(ipc::get_init_script());
     // 正式模式：注册自定义协议，加载嵌入的资源
     #[cfg(not(debug_assertions))]
-    {
+    let webview_builder = {
         let exe_path = std::env::current_exe().expect("Failed to get exe path");
         let resources = Resources::load_from_exe(&exe_path)
             .expect("Failed to load resources from exe");
@@ -174,9 +179,10 @@ fn main() {
                 }
             },
         );
-    }
+    };
 
-    let _webview = webview_builder.build(&window).unwrap();
+    let webview = webview_builder.build(&window).unwrap();
+    ipc::init(webview);
 
     // ============================================================
     // 第 4 步：运行事件循环

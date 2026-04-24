@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 use serde::Deserialize;
-use crate::Resources;
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct AppConfigSx {
