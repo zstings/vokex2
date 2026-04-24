@@ -513,22 +513,38 @@ export interface AppAPI {
   restart: () => Promise<void>;
   /** 获取应用安装目录路径 */
   getAppPath: () => Promise<string>;
-  /** 获取系统特殊目录路径 */
-  getPath: (name: string) => Promise<string>;
-  /** 获取应用版本号（来自 package.json） */
+  /**
+   * 获取系统特殊目录路径
+   * @param name 目录名称：home | appData | desktop | documents | downloads | temp
+   */
+  getPath: (name: "home" | "appData" | "desktop" | "documents" | "downloads" | "temp") => Promise<string>;
+  /** 获取应用版本号（来自 vokex-config.json） */
   getVersion: () => Promise<string>;
-  /** 获取应用名称 */
+  /** 获取应用名称（来自 vokex-config.json） */
   getName: () => Promise<string>;
-  /** 设置应用名称（该功能实现待定） */
-  setName: (name: string) => Promise<void>;
+  /** 获取应用标识符（来自 vokex-config.json） */
+  getIdentifier: () => Promise<string>;
   /** 获取系统语言标识，如 zh-CN、en-US */
   getLocale: () => Promise<string>;
-  /** 设置 macOS Dock 图标徽标（该功能实现待定） */
-  setDockBadge: (text: string) => Promise<void>;
+  /** 获取当前进程 PID */
+  getPid: () => Promise<number>;
+  /** 获取命令行参数数组 */
+  getArgv: () => Promise<string[]>;
+  /**
+   * 获取环境变量值
+   * @param key 环境变量名称，如 PATH、HOME
+   */
+  getEnv: (key: string) => Promise<string>;
+  /** 获取操作系统类型，如 windows、linux、macos */
+  getPlatform: () => Promise<string>;
+  /** 获取系统架构，如 x86_64、aarch64 */
+  getArch: () => Promise<string>;
+  // /** 设置 macOS Dock 图标徽标 */
+  // setDockBadge: (text: string) => Promise<void>;
   /** 请求单实例锁，防止重复启动 */
   requestSingleInstanceLock: () => Promise<boolean>;
-  /** 设置应用代理（该功能实现待定） */
-  setProxy: (config: ProxyConfig) => Promise<void>;
+  // /** 设置应用代理 */
+  // setProxy: (config: ProxyConfig) => Promise<void>;
   /** 监听应用事件 */
   on: (event: AppEvent, callback: (data?: any) => void) => void;
 }
@@ -544,8 +560,9 @@ export const app: AppAPI = {
 
   /**
    * 立即退出应用，不触发生命周期事件
+   * @param code 退出码，默认 0
    */
-  exit: (code: number = 0): Promise<void> => vokexCall('app.exit', [code]),
+  exit: (code?: number): Promise<void> => vokexCall('app.exit', { code }),
 
   /**
    * 重启应用
@@ -559,24 +576,24 @@ export const app: AppAPI = {
 
   /**
    * 获取系统特殊目录路径
-   * @param name 目录名，如 home、appData、desktop、documents、downloads、pictures、music、videos、temp、exe
+   * @param name 目录名：home | appData | desktop | documents | downloads | temp
    */
-  getPath: (name: string): Promise<string> => vokexCall('app.getPath', [name]),
+  getPath: (name: string): Promise<string> => vokexCall('app.getPath', { name }),
 
   /**
-   * 获取应用版本号（来自 package.json）
+   * 获取应用版本号（来自 vokex-config.json）
    */
   getVersion: (): Promise<string> => vokexCall('app.getVersion'),
 
   /**
-   * 获取应用名称
+   * 获取应用名称（来自 vokex-config.json）
    */
   getName: (): Promise<string> => vokexCall('app.getName'),
 
   /**
-   * 设置应用名称
+   * 获取应用标识符（来自 vokex-config.json）
    */
-  setName: (name: string): Promise<void> => vokexCall('app.setName', [name]),
+  getIdentifier: (): Promise<string> => vokexCall('app.getIdentifier'),
 
   /**
    * 获取系统语言标识，如 zh-CN、en-US
@@ -584,23 +601,44 @@ export const app: AppAPI = {
   getLocale: (): Promise<string> => vokexCall('app.getLocale'),
 
   /**
-   * 设置 macOS Dock 图标徽标
+   * 获取当前进程 PID
    */
-  setDockBadge: (text: string): Promise<void> => vokexCall('app.setDockBadge', [text]),
+  getPid: (): Promise<number> => vokexCall('app.getPid'),
 
   /**
-   * 请求单实例锁，防止重复启动
-   * @returns true 表示当前是首个实例，false 表示已有实例运行
+   * 获取命令行参数数组
    */
+  getArgv: (): Promise<string[]> => vokexCall('app.getArgv'),
+
+  /**
+   * 获取环境变量值
+   * @param key 环境变量名称，如 PATH、HOME
+   */
+  getEnv: (key: string): Promise<string> => vokexCall('app.getEnv', { key }),
+
+  /**
+   * 获取操作系统类型，如 windows、linux、macos
+   */
+  getPlatform: (): Promise<string> => vokexCall('app.getPlatform'),
+
+  /**
+   * 获取系统架构，如 x86_64、aarch64
+   */
+  getArch: (): Promise<string> => vokexCall('app.getArch'),
+
+  // /** 设置 macOS Dock 图标徽标 */
+  // setDockBadge: (text: string): Promise<void> => vokexCall('app.setDockBadge', { text }),
+
+  /** 请求单实例锁，防止重复启动 */
   requestSingleInstanceLock: (): Promise<boolean> => vokexCall('app.requestSingleInstanceLock'),
 
-  /**
-   * 设置应用代理
-   */
-  setProxy: (config: ProxyConfig): Promise<void> => vokexCall('app.setProxy', [config]),
+  // /** 设置应用代理 */
+  // setProxy: (config: ProxyConfig): Promise<void> => vokexCall('app.setProxy', { config }),
 
   /**
    * 监听应用事件
+   * @param event 事件名：ready | window-all-closed | before-quit | second-instance | activate
+   * @param callback 事件回调函数
    */
   on: (event: 'ready' | 'window-all-closed' | 'before-quit' | 'second-instance' | 'activate', callback: (data?: any) => void): void => {
     events.on(`app.${event}`, callback);

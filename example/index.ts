@@ -5,6 +5,7 @@ const output = document.getElementById("output") as HTMLDivElement;
 function log(message: string): void {
   output.textContent += message + "\n";
   output.scrollTop = output.scrollHeight;
+  console.log(output.textContent);
 }
 
 function clear(): void {
@@ -57,7 +58,7 @@ document
         "documents",
         "downloads",
         "temp",
-      ];
+      ] as const;
       for (const name of paths) {
         const path = await app.getPath(name);
         log(`${name}: ${path}`);

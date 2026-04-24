@@ -113,21 +113,15 @@ pub fn resolve_async_response(window_id: u32, id: u64, result: Option<serde_json
     crate::window_manager::eval(window_id, &script);
 }
 
-fn dispatch(method: &str, _params: &serde_json::Value) -> Result<serde_json::Value, String> {
-    match method {
-        "app.getName" => {
-            let config = crate::app_config::get_config();
-            Ok(serde_json::json!(config.name))
+fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+    // 按模块前缀分发
+    if let Some(module) = method.split('.').next() {
+        match module {
+            "app" => crate::apis::app::handle(method, params),
+            _ => Err(format!("Unknown method: {}", method)),
         }
-        "app.getVersion" => {
-            let config = crate::app_config::get_config();
-            Ok(serde_json::json!(config.version))
-        }
-        "app.getIdentifier" => {
-            let config = crate::app_config::get_config();
-            Ok(serde_json::json!(config.identifier))
-        }
-        _ => Err(format!("Unknown method: {}", method)),
+    } else {
+        Err(format!("Invalid method: {}", method))
     }
 }
 
@@ -151,6 +145,15 @@ pub fn emit_all(event: &str, data: serde_json::Value) {
         event_escaped, data_json
     );
     crate::window_manager::eval_all(&script);
+}
+
+/// 发送退出事件到主线程
+pub fn send_quit_event() {
+    PROXY.with(|p| {
+        if let Some(proxy) = p.borrow().as_ref() {
+            let _ = proxy.send_event(crate::IpcTask::Quit);
+        }
+    });
 }
 
 pub fn get_init_script(window_id: u32) -> String {
@@ -204,6 +207,10 @@ pub fn get_init_script(window_id: u32) -> String {
                 }
             }
         };
+        // 延迟触发 app.ready，确保前端 JS 已注册监听器
+        setTimeout(function() {
+            window.__VOKEX__.__emit__('app.ready', {});
+        }, 100);
     })();
     "#
     .replace("__WINDOW_ID__", &window_id.to_string())

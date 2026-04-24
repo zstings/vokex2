@@ -14,6 +14,7 @@ mod app_config;
 mod utils;
 mod ipc;
 mod window_manager;
+mod apis;
 use utils::{load_image, get_webview_data_dir};
 
 use std::io::{self, Read, Seek, SeekFrom};
@@ -114,6 +115,7 @@ impl Resources {
 enum IpcTask {
     HandleRequest { window_id: u32, body: String },
     HandleAsyncResponse { window_id: u32, id: u64, result: Option<serde_json::Value>, error: Option<String> },
+    Quit,
 }
 
 // 程序入口函数
@@ -221,7 +223,10 @@ fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             // 把 control_flow 设为 Exit，事件循环会退出，程序结束
-            } => *control_flow = ControlFlow::Exit,
+            } => {
+                ipc::emit_all("app.before-quit", serde_json::json!({}));
+                *control_flow = ControlFlow::Exit;
+            },
 
             
             Event::UserEvent(IpcTask::HandleRequest { window_id, body }) => {
@@ -230,6 +235,11 @@ fn main() {
 
             Event::UserEvent(IpcTask::HandleAsyncResponse { window_id, id, result, error }) => {
                 ipc::resolve_async_response(window_id, id, result, error);
+            }
+
+            Event::UserEvent(IpcTask::Quit) => {
+                ipc::emit_all("app.before-quit", serde_json::json!({}));
+                *control_flow = ControlFlow::Exit;
             }
 
             // _ = 其他所有事件，不处理（忽略）
