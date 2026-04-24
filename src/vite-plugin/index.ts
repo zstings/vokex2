@@ -22,7 +22,7 @@
 
 import type { Plugin, ResolvedConfig } from "vite";
 import { resolve, dirname } from "path";
-import { existsSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, unlinkSync, copyFileSync } from "fs";
+import { existsSync, writeFileSync, mkdirSync, rmSync, cpSync, readdirSync, unlinkSync, copyFileSync, readFileSync } from "fs";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { spawn, type ChildProcess } from "child_process";
@@ -250,6 +250,12 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
           const port = address.port;
           const devUrl = `http://localhost:${port}`;
           console.log(`[vokex] Vite 开发服务器已启动: ${devUrl}`);
+          //配置写入url链接
+          const publicDir = resolve(process.cwd(), "public");
+          const configPath = resolve(publicDir, "vokex-config.json");
+          const vokexConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+          vokexConfig.dev_url = devUrl;
+          writeFileSync(configPath, JSON.stringify(vokexConfig, null, 2), "utf-8");
           // 启动壳
           startShell(devUrl);
         }

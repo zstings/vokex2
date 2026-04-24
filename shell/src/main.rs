@@ -14,23 +14,99 @@ mod app_config;
 mod utils;
 use utils::{load_image, get_webview_data_dir};
 
+use std::io::{self, Read, Seek, SeekFrom};
+use std::fs::File;
+use std::path::Path;
+use serde_json::Value;
+use flate2::read::ZlibDecoder;
 // `use` = 引入其他模块的东西，类似 JS 的 import
 // 从 tao 库的 event 模块引入 Event（所有事件的枚举）和 WindowEvent（窗口事件的枚举）
 use tao::event::{Event, WindowEvent};
-
 // 从 tao 的 event_loop 模块引入：
 // - ControlFlow：控制事件循环是否继续运行（Wait=继续等待，Exit=退出）
 // - EventLoop：事件循环本身，每个 GUI 程序有且只有一个
 use tao::event_loop::{ControlFlow, EventLoop};
-
-// 从 tao 的 window 模块引入 WindowBuilder，用来配置和创建窗口
 use tao::window::WindowBuilder;
 
-// 从 wry 库引入 Response，用来构造 HTTP 响应（给自定义协议返回网页内容）
-use wry::http::Response;
 
-// 从 wry 库引入 WebViewBuilder，用来配置和创建 WebView（网页渲染区域）
-use wry::WebViewBuilder;
+// ==============================
+// 资源加载
+// ==============================
+
+const MAGIC: &[u8] = b"VOKEX";
+const MAGIC_SIZE: usize = 5;
+const INDEX_LENGTH_SIZE: usize = 4;
+const OFFSET_SIZE: usize = 8;
+
+#[derive(Debug)]
+pub struct Resources {
+    index: serde_json::Map<String, Value>,
+    data: Vec<u8>,
+}
+
+impl Resources {
+    pub fn load_from_exe(exe_path: &Path) -> io::Result<Self> {
+        let mut file = File::open(exe_path)?;
+        let file_size = file.metadata()?.len();
+
+        if file_size < OFFSET_SIZE as u64 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "File too small"));
+        }
+
+        file.seek(SeekFrom::End(-(OFFSET_SIZE as i64)))?;
+        let mut offset_buf = [0u8; OFFSET_SIZE];
+        file.read_exact(&mut offset_buf)?;
+        let offset = u64::from_le_bytes(offset_buf);
+
+        if offset >= file_size {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid offset"));
+        }
+
+        file.seek(SeekFrom::Start(offset))?;
+        let mut magic_buf = [0u8; MAGIC_SIZE];
+        file.read_exact(&mut magic_buf)?;
+
+        if magic_buf != MAGIC {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid magic"));
+        }
+
+        let mut index_length_buf = [0u8; INDEX_LENGTH_SIZE];
+        file.read_exact(&mut index_length_buf)?;
+        let index_length = u32::from_le_bytes(index_length_buf) as usize;
+
+        let mut index_json = vec![0u8; index_length];
+        file.read_exact(&mut index_json)?;
+        let index: serde_json::Map<String, Value> = serde_json::from_slice(&index_json)?;
+
+        let compressed_data_length = file_size - offset - MAGIC_SIZE as u64 - INDEX_LENGTH_SIZE as u64 - index_length as u64 - OFFSET_SIZE as u64;
+        let mut compressed_data = vec![0u8; compressed_data_length as usize];
+        file.read_exact(&mut compressed_data)?;
+
+        let mut decoder = ZlibDecoder::new(&compressed_data[..]);
+        let mut data = Vec::new();
+        decoder.read_to_end(&mut data)?;
+
+        Ok(Self { index, data })
+    }
+
+    pub fn get(&self, path: &str) -> Option<&[u8]> {
+        if let Some(Value::Array(offsets)) = self.index.get(path) {
+            if offsets.len() == 2 {
+                if let (Some(Value::Number(start)), Some(Value::Number(end))) = (
+                    offsets.get(0),
+                    offsets.get(1),
+                ) {
+                    let start = start.as_u64()? as usize;
+                    let end = end.as_u64()? as usize;
+                    if end <= self.data.len() {
+                        return Some(&self.data[start..end]);
+                    }
+                }
+            }
+        }
+        None
+    }
+}
 
 // 程序入口函数
 fn main() {
@@ -62,11 +138,45 @@ fn main() {
     let data_dir = get_webview_data_dir(&app_config.identifier);
     let mut web_context = wry::WebContext::new(Some(data_dir));
     // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
-    let _webview = wry::WebViewBuilder::new_with_web_context(&mut web_context)
-        .with_url("http://localhost:5173/")
-        .with_devtools(true)
-        .build(&window)
-        .unwrap();
+    let url = app_config.dev_url.unwrap_or_else(|| "vokex://index.html".to_string());
+    let mut webview_builder = wry::WebViewBuilder::new_with_web_context(&mut web_context)
+        .with_url(url)
+        .with_devtools(true);
+    // 正式模式：注册自定义协议，加载嵌入的资源
+    #[cfg(not(debug_assertions))]
+    {
+        let exe_path = std::env::current_exe().expect("Failed to get exe path");
+        let resources = Resources::load_from_exe(&exe_path)
+            .expect("Failed to load resources from exe");
+        let resources = std::sync::Arc::new(resources);
+
+        webview_builder = webview_builder.with_custom_protocol(
+            "vokex".to_string(),
+            move |url, _webview_id| {
+                // url 是字符串，比如 "vokex://index.html" 或 "vokex://assets/style.css"
+                let path = url.strip_prefix("vokex://")
+                    .unwrap_or("index.html")
+                    .trim_start_matches('/');
+        
+                if let Some(content) = resources.get(path) {
+                    let mime = mime_guess::from_path(path)
+                        .first_or_text_plain()
+                        .to_string();
+                    wry::http::Response::builder()
+                        .header("Content-Type", mime)
+                        .body(content.to_vec().into())
+                        .unwrap()
+                } else {
+                    wry::http::Response::builder()
+                        .status(404)
+                        .body("Not Found".as_bytes().to_vec().into())
+                        .unwrap()
+                }
+            },
+        );
+    }
+
+    let _webview = webview_builder.build(&window).unwrap();
 
     // ============================================================
     // 第 4 步：运行事件循环
