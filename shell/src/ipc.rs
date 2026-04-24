@@ -82,8 +82,8 @@ pub fn get_init_script() -> &'static str {
         window.__VOKEX__ = {
             call: function(method, params) {
                 var id = ++_callId;
-                return new Promise(function(resolve) {
-                    _pendingCalls.set(id, resolve);
+                return new Promise(function(resolve, reject) {
+                    _pendingCalls.set(id, { resolve: resolve, reject: reject });
                     window.ipc.postMessage(JSON.stringify({
                         id: id,
                         method: method,
@@ -97,13 +97,13 @@ pub fn get_init_script() -> &'static str {
         };
 
         window.__VOKEX_IPC__ = function(response) {
-            var resolve = _pendingCalls.get(response.id);
-            if (resolve) {
+            var callback = _pendingCalls.get(response.id);
+            if (callback) {
                 _pendingCalls.delete(response.id);
                 if (response.error) {
-                    resolve(Promise.reject(response.error));
+                    callback.reject(new Error(response.error));
                 } else {
-                    resolve(response.result);
+                    callback.resolve(response.result);
                 }
             }
         };
