@@ -26,7 +26,7 @@ use tao::event::{Event, WindowEvent};
 // 从 tao 的 event_loop 模块引入：
 // - ControlFlow：控制事件循环是否继续运行（Wait=继续等待，Exit=退出）
 // - EventLoop：事件循环本身，每个 GUI 程序有且只有一个
-use tao::event_loop::{ControlFlow, EventLoop};
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::WindowBuilder;
 
 
@@ -109,6 +109,11 @@ impl Resources {
     }
 }
 
+#[derive(Debug, Clone)]
+enum IpcTask {
+    HandleRequest { body: String },
+}
+
 // 程序入口函数
 fn main() {
 
@@ -125,7 +130,9 @@ fn main() {
     // ============================================================
     // 事件循环 = 一个无限循环，不断从操作系统接收事件（点击、按键、拖动等）
     // 它是整个程序的"心脏"，所有 GUI 程序都必须有一个
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoopBuilder::<IpcTask>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+    ipc::set_proxy(proxy.clone());
 
     // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
     let icon = load_image(app_config.icon);
@@ -210,6 +217,11 @@ fn main() {
                 ..
             // 把 control_flow 设为 Exit，事件循环会退出，程序结束
             } => *control_flow = ControlFlow::Exit,
+
+            
+            Event::UserEvent(IpcTask::HandleRequest { body }) => {
+                ipc::process_request(&body);
+            }
 
             // _ = 其他所有事件，不处理（忽略）
             // 包括：鼠标移动、键盘输入、窗口缩放、系统托盘等

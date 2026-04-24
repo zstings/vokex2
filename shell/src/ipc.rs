@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use tao::event_loop::EventLoopProxy;
 
 #[derive(Deserialize, Debug)]
 pub struct IpcRequest {
@@ -19,6 +20,13 @@ struct IpcResponse {
 // 用 thread_local 代替 static，因为 WebView 不是 Sync
 thread_local! {
     static WEBVIEW: RefCell<Option<wry::WebView>> = RefCell::new(None);
+    static PROXY: RefCell<Option<EventLoopProxy<crate::IpcTask>>> = RefCell::new(None);
+}
+
+pub fn set_proxy(proxy: EventLoopProxy<crate::IpcTask>) {
+    PROXY.with(|p| {
+        *p.borrow_mut() = Some(proxy);
+    });
 }
 
 pub fn init(webview: wry::WebView) {
@@ -28,10 +36,16 @@ pub fn init(webview: wry::WebView) {
 }
 
 pub fn handle_message(request: wry::http::Request<String>) {
-    // 从 Request 中提取 body 字符串
     let body = request.into_body();
-    
-    let req: IpcRequest = match serde_json::from_str(&body) {
+    PROXY.with(|p| {
+        if let Some(proxy) = p.borrow().as_ref() {
+            let _ = proxy.send_event(crate::IpcTask::HandleRequest { body });
+        }
+    });
+}
+
+pub fn process_request(body: &str) {
+    let req: IpcRequest = match serde_json::from_str(body) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("[IPC] Invalid message: {}", e);
@@ -49,7 +63,10 @@ pub fn handle_message(request: wry::http::Request<String>) {
     WEBVIEW.with(|w| {
         if let Some(wv) = w.borrow_mut().as_ref() {
             let json = serde_json::to_string(&response).unwrap_or_default();
-            let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
+            let script = format!(
+                "window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})",
+                json
+            );
             let _ = wv.evaluate_script(&script);
         }
     });
