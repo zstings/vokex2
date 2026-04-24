@@ -8,6 +8,8 @@ pub struct IpcRequest {
     pub method: String,
     #[serde(default)]
     pub params: serde_json::Value,
+    #[serde(default)]
+    pub window_id: u32,
 }
 
 #[derive(Serialize)]
@@ -17,9 +19,7 @@ struct IpcResponse {
     error: Option<String>,
 }
 
-// 用 thread_local 代替 static，因为 WebView 不是 Sync
 thread_local! {
-    static WEBVIEW: RefCell<Option<wry::WebView>> = RefCell::new(None);
     static PROXY: RefCell<Option<EventLoopProxy<crate::IpcTask>>> = RefCell::new(None);
 }
 
@@ -29,22 +29,16 @@ pub fn set_proxy(proxy: EventLoopProxy<crate::IpcTask>) {
     });
 }
 
-pub fn init(webview: wry::WebView) {
-    WEBVIEW.with(|w| {
-        *w.borrow_mut() = Some(webview);
-    });
-}
-
-pub fn handle_message(request: wry::http::Request<String>) {
+pub fn handle_message(window_id: u32, request: wry::http::Request<String>) {
     let body = request.into_body();
     PROXY.with(|p| {
         if let Some(proxy) = p.borrow().as_ref() {
-            let _ = proxy.send_event(crate::IpcTask::HandleRequest { body });
+            let _ = proxy.send_event(crate::IpcTask::HandleRequest { window_id, body });
         }
     });
 }
 
-pub fn process_request(body: &str) {
+pub fn process_request(window_id: u32, body: &str) {
     let req: IpcRequest = match serde_json::from_str(body) {
         Ok(r) => r,
         Err(e) => {
@@ -53,23 +47,19 @@ pub fn process_request(body: &str) {
         }
     };
 
-    eprintln!("[IPC] {}", req.method);
+    eprintln!("[IPC] window_id={}, method={}", window_id, req.method);
 
     let response = match dispatch(&req.method, &req.params) {
         Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
         Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
     };
 
-    WEBVIEW.with(|w| {
-        if let Some(wv) = w.borrow_mut().as_ref() {
-            let json = serde_json::to_string(&response).unwrap_or_default();
-            let script = format!(
-                "window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})",
-                json
-            );
-            let _ = wv.evaluate_script(&script);
-        }
-    });
+    let json = serde_json::to_string(&response).unwrap_or_default();
+    let script = format!(
+        "window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})",
+        json
+    );
+    crate::window_manager::eval(window_id, &script);
 }
 
 fn dispatch(method: &str, _params: &serde_json::Value) -> Result<serde_json::Value, String> {
@@ -90,40 +80,43 @@ fn dispatch(method: &str, _params: &serde_json::Value) -> Result<serde_json::Val
     }
 }
 
-pub fn get_init_script() -> &'static str {
-    r#"
-    (function() {
+pub fn get_init_script(window_id: u32) -> String {
+    format!(r#"
+    (function() {{
         var _pendingCalls = new Map();
         var _callId = 0;
+        var _windowId = {};
 
-        window.__VOKEX__ = {
-            call: function(method, params) {
+        window.__VOKEX__ = {{
+            __windowId__: _windowId,
+            call: function(method, params) {{
                 var id = ++_callId;
-                return new Promise(function(resolve, reject) {
-                    _pendingCalls.set(id, { resolve: resolve, reject: reject });
-                    window.ipc.postMessage(JSON.stringify({
+                return new Promise(function(resolve, reject) {{
+                    _pendingCalls.set(id, {{ resolve: resolve, reject: reject }});
+                    window.ipc.postMessage(JSON.stringify({{
                         id: id,
                         method: method,
-                        params: params || {}
-                    }));
-                });
-            },
-            on: function(event, listener) {},
-            off: function(event, listener) {},
-            __emit__: function(event, data) {}
-        };
+                        params: params || {{}},
+                        windowId: _windowId
+                    }}));
+                }});
+            }},
+            on: function(event, listener) {{}},
+            off: function(event, listener) {{}},
+            __emit__: function(event, data) {{}}
+        }};
 
-        window.__VOKEX_IPC__ = function(response) {
+        window.__VOKEX_IPC__ = function(response) {{
             var callback = _pendingCalls.get(response.id);
-            if (callback) {
+            if (callback) {{
                 _pendingCalls.delete(response.id);
-                if (response.error) {
+                if (response.error) {{
                     callback.reject(new Error(response.error));
-                } else {
+                }} else {{
                     callback.resolve(response.result);
-                }
-            }
-        };
-    })();
-    "#
+                }}
+            }}
+        }};
+    }})();
+    "#, window_id)
 }

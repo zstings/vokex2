@@ -13,6 +13,7 @@
 mod app_config;
 mod utils;
 mod ipc;
+mod window_manager;
 use utils::{load_image, get_webview_data_dir};
 
 use std::io::{self, Read, Seek, SeekFrom};
@@ -111,7 +112,7 @@ impl Resources {
 
 #[derive(Debug, Clone)]
 enum IpcTask {
-    HandleRequest { body: String },
+    HandleRequest { window_id: u32, body: String },
 }
 
 // 程序入口函数
@@ -145,15 +146,17 @@ fn main() {
     // 创建 WebView（URL、协议、数据目录 → WebViewBuilder）
     let data_dir = get_webview_data_dir(&app_config.identifier);
     let mut web_context = wry::WebContext::new(Some(data_dir));
-    // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
     let url = app_config.dev_url.unwrap_or_else(|| "vokex://index.html".to_string());
+    // 先分配 window_id，这样闭包和 init_script 都能用
+    let window_id = window_manager::next_id();
+    // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
     let webview_builder = wry::WebViewBuilder::new_with_web_context(&mut web_context)
         .with_url(url)
         .with_devtools(true)
-        .with_ipc_handler(|message| {
-            ipc::handle_message(message);
+        .with_ipc_handler(move |message| {
+            ipc::handle_message(window_id, message);
         })
-        .with_initialization_script(ipc::get_init_script());
+        .with_initialization_script(ipc::get_init_script(window_id));
     // 正式模式：注册自定义协议，加载嵌入的资源
     #[cfg(not(debug_assertions))]
     let webview_builder = {
@@ -162,7 +165,7 @@ fn main() {
             .expect("Failed to load resources from exe");
         let resources = std::sync::Arc::new(resources);
 
-        webview_builder = webview_builder.with_custom_protocol(
+        webview_builder.with_custom_protocol(
             "vokex".to_string(),
             move |url, _webview_id| {
                 // url 是字符串，比如 "vokex://index.html" 或 "vokex://assets/style.css"
@@ -185,11 +188,12 @@ fn main() {
                         .unwrap()
                 }
             },
-        );
+        )
     };
 
     let webview = webview_builder.build(&window).unwrap();
-    ipc::init(webview);
+    // WebView 创建完后，用预分配的 id 注册
+    window_manager::register_with_id(window_id, webview);
 
     // ============================================================
     // 第 4 步：运行事件循环
@@ -219,8 +223,8 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
 
             
-            Event::UserEvent(IpcTask::HandleRequest { body }) => {
-                ipc::process_request(&body);
+            Event::UserEvent(IpcTask::HandleRequest { window_id, body }) => {
+                ipc::process_request(window_id, &body);
             }
 
             // _ = 其他所有事件，不处理（忽略）
