@@ -9,5 +9,6 @@
     "height": 800,
     "center": true
   },
-  "verbose": true
+  "verbose": true,
+  "dev_url": "http://localhost:5173"
 }

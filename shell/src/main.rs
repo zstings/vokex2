@@ -230,13 +230,35 @@ fn main() {
             //   event = 具体的窗口事件类型
             //   .. = 忽略其他字段（比如 window_id）
             // WindowEvent::CloseRequested = 用户点了窗口右上角的 X 按钮
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            // 把 control_flow 设为 Exit，事件循环会退出，程序结束
-            } => {
-                ipc::emit_all("app.before-quit", serde_json::json!({}));
-                *control_flow = ControlFlow::Exit;
+            Event::WindowEvent { event, .. } => {
+                match event {
+                    WindowEvent::CloseRequested => {
+                        ipc::emit_all("app.before-quit", serde_json::json!({}));
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::Resized(size) => {
+                        ipc::emit_all("window.resized", serde_json::json!({
+                            "width": size.width,
+                            "height": size.height
+                        }));
+                    }
+                    WindowEvent::Moved(position) => {
+                        ipc::emit_all("window.moved", serde_json::json!({
+                            "x": position.x,
+                            "y": position.y
+                        }));
+                    }
+                    WindowEvent::Focused(focused) => {
+                        let event_name = if focused { "window.focus" } else { "window.blur" };
+                        ipc::emit_all(event_name, serde_json::json!({
+                            "focused": focused
+                        }));
+                    }
+                    WindowEvent::Destroyed => {
+                        ipc::emit_all("window.closed", serde_json::json!({}));
+                    }
+                    _ => {}
+                }
             },
 
             
