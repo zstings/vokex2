@@ -140,6 +140,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
             "storage" => crate::apis::storage::handle(method, params),
             "shell" => crate::apis::shell::handle(method, params),
             "process" => crate::apis::process::handle(method, params),
+            "http" => crate::apis::http::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {

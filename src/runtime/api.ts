@@ -808,121 +808,7 @@ export const computer: ComputerAPI = {
   getKeyboardLayout: (): Promise<string> => vokexCall('computer.getKeyboardLayout'),
 };
 
-/**
- * HTTP 请求选项
- */
-export interface RequestOptions {
-  /** 请求方法 */
-  method?: string;
-  /** 请求头 */
-  headers?: Record<string, string>;
-  /** 请求体 */
-  body?: string;
-  /** 超时时间（毫秒） */
-  timeout?: number;
-}
 
-/**
- * HTTP 响应
- */
-export interface HttpResponse {
-  /** 状态码 */
-  statusCode: number;
-  /** 响应头 */
-  headers: Record<string, string>;
-  /** 响应体 */
-  body: string;
-  /** 是否成功（2xx 状态码） */
-  ok: boolean;
-}
-
-/**
- * HTTP API 接口
- */
-export interface HttpAPI {
-  /** 发起 GET 请求 */
-  get: (url: string, options?: Omit<RequestOptions, 'method' | 'url'>) => Promise<HttpResponse>;
-  /** 发起 POST 请求 */
-  post: (url: string, data?: any, options?: Omit<RequestOptions, 'method' | 'url'>) => Promise<HttpResponse>;
-  /** 发起 PUT 请求 */
-  put: (url: string, data?: any, options?: Omit<RequestOptions, 'method' | 'url'>) => Promise<HttpResponse>;
-  /** 发起 DELETE 请求 */
-  delete: (url: string, options?: Omit<RequestOptions, 'method' | 'url'>) => Promise<HttpResponse>;
-  /** 发起自定义请求 */
-  request: (options: RequestOptions & { url: string }) => Promise<HttpResponse>;
-}
-
-/**
- * HTTP/HTTPS 网络请求 API
- */
-export const http: HttpAPI = {
-  /** 发起 GET 请求 */
-  get: (url: string, options?: Omit<RequestOptions, 'method' | 'url'>): Promise<HttpResponse> => {
-    return http.request({
-      method: 'GET',
-      url,
-      ...options,
-    });
-  },
-
-  /** 发起 POST 请求 */
-  post: (url: string, data?: any, options?: Omit<RequestOptions, 'method' | 'url'>): Promise<HttpResponse> => {
-    let body: string | undefined;
-    if (data !== undefined) {
-      if (typeof data === 'string') {
-        body = data;
-      } else {
-        body = JSON.stringify(data);
-      }
-    }
-    return http.request({
-      method: 'POST',
-      url,
-      body,
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-  },
-
-  /** 发起 PUT 请求 */
-  put: (url: string, data?: any, options?: Omit<RequestOptions, 'method' | 'url'>): Promise<HttpResponse> => {
-    let body: string | undefined;
-    if (data !== undefined) {
-      if (typeof data === 'string') {
-        body = data;
-      } else {
-        body = JSON.stringify(data);
-      }
-    }
-    return http.request({
-      method: 'PUT',
-      url,
-      body,
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-  },
-
-  /** 发起 DELETE 请求 */
-  delete: (url: string, options?: Omit<RequestOptions, 'method' | 'url'>): Promise<HttpResponse> => {
-    return http.request({
-      method: 'DELETE',
-      url,
-      ...options,
-    });
-  },
-
-  /** 发起自定义请求 */
-  request: (options: RequestOptions & { url: string }): Promise<HttpResponse> => {
-    return vokexCall('http.request', [options]);
-  },
-};
 
 export { app } from './apis/app';
 export { events } from './apis/events';
@@ -930,4 +816,5 @@ export { storage } from './apis/storage';
 export { fs } from './apis/fs';
 export { shell } from './apis/shell';
 export { process } from './apis/process';
+export { http } from './apis/http';
 
