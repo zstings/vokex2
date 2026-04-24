@@ -1,12 +1,21 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use tao::window::{Window, WindowId};
 use wry::WebView;
+
+/// 窗口条目，同时持有 tao Window 和 wry WebView
+pub struct WindowEntry {
+    pub window: Window,
+    pub webview: WebView,
+}
 
 /// 窗口管理器 - 存储所有窗口的 WebView
 /// 只在主线程使用，所以用 RefCell 不需要 Mutex
 pub struct WindowManager {
     next_id: u32,
-    windows: HashMap<u32, WebView>,
+    windows: HashMap<u32, WindowEntry>,
+    /// tao WindowId → vokex window_id 的映射
+    tao_to_vokex: HashMap<WindowId, u32>,
 }
 
 impl WindowManager {
@@ -14,33 +23,67 @@ impl WindowManager {
         Self {
             next_id: 1,
             windows: HashMap::new(),
+            tao_to_vokex: HashMap::new(),
         }
     }
 
     /// 注册窗口，返回分配的窗口 ID
-    pub fn register(&mut self, webview: WebView) -> u32 {
+    pub fn register(&mut self, window: Window, webview: WebView) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
-        self.windows.insert(id, webview);
+        let tao_id = window.id();
+        self.tao_to_vokex.insert(tao_id, id);
+        self.windows.insert(id, WindowEntry { window, webview });
         id
     }
 
     /// 注销窗口
     pub fn unregister(&mut self, id: u32) {
-        self.windows.remove(&id);
+        if let Some(entry) = self.windows.remove(&id) {
+            self.tao_to_vokex.remove(&entry.window.id());
+        }
     }
 
     /// 向指定窗口执行 JS 脚本
     pub fn eval(&self, id: u32, script: &str) {
-        if let Some(wv) = self.windows.get(&id) {
-            let _ = wv.evaluate_script(script);
+        if let Some(entry) = self.windows.get(&id) {
+            let _ = entry.webview.evaluate_script(script);
         }
     }
 
     /// 向所有窗口执行 JS 脚本
     pub fn eval_all(&self, script: &str) {
-        for wv in self.windows.values() {
-            let _ = wv.evaluate_script(script);
+        for entry in self.windows.values() {
+            let _ = entry.webview.evaluate_script(script);
+        }
+    }
+
+    /// 获取所有窗口 ID
+    pub fn get_all_ids(&self) -> Vec<u32> {
+        self.windows.keys().copied().collect()
+    }
+
+    /// 获取指定窗口的引用
+    pub fn get(&self, id: u32) -> Option<&WindowEntry> {
+        self.windows.get(&id)
+    }
+
+    /// 获取指定窗口的可变引用
+    pub fn get_mut(&mut self, id: u32) -> Option<&mut WindowEntry> {
+        self.windows.get_mut(&id)
+    }
+
+    /// 通过 tao WindowId 查找 vokex window_id
+    pub fn get_id_by_tao_id(&self, tao_id: WindowId) -> Option<u32> {
+        self.tao_to_vokex.get(&tao_id).copied()
+    }
+
+    /// 获取主窗口 ID（第一个注册的窗口，ID 为 1）
+    pub fn get_main_window_id(&self) -> Option<u32> {
+        if self.windows.contains_key(&1) {
+            Some(1)
+        } else {
+            None
         }
     }
 }
@@ -51,8 +94,8 @@ thread_local! {
 }
 
 /// 注册窗口，返回窗口 ID
-pub fn register(webview: WebView) -> u32 {
-    MANAGER.with(|m| m.borrow_mut().register(webview))
+pub fn register(window: Window, webview: WebView) -> u32 {
+    MANAGER.with(|m| m.borrow_mut().register(window, webview))
 }
 
 /// 注销窗口
@@ -79,9 +122,23 @@ pub fn next_id() -> u32 {
     })
 }
 
-/// 用指定 ID 注册窗口
-pub fn register_with_id(id: u32, webview: WebView) {
+/// 用指定 ID 注册窗口（主窗口用，因为 ID 在 WebView 创建前就分配了）
+pub fn register_with_id(id: u32, window: Window, webview: WebView) {
     MANAGER.with(|m| {
-        m.borrow_mut().windows.insert(id, webview);
+        let tao_id = window.id();
+        m.borrow_mut().tao_to_vokex.insert(tao_id, id);
+        m.borrow_mut().windows.insert(id, WindowEntry { window, webview });
     });
+}
+
+pub fn get_all_ids() -> Vec<u32> {
+    MANAGER.with(|m| m.borrow().get_all_ids())
+}
+
+pub fn get_id_by_tao_id(tao_id: WindowId) -> Option<u32> {
+    MANAGER.with(|m| m.borrow().get_id_by_tao_id(tao_id))
+}
+
+pub fn get_main_window_id() -> Option<u32> {
+    MANAGER.with(|m| m.borrow().get_main_window_id())
 }

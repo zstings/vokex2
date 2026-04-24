@@ -116,6 +116,11 @@ enum IpcTask {
     HandleRequest { window_id: u32, body: String },
     HandleAsyncResponse { window_id: u32, id: u64, result: Option<serde_json::Value>, error: Option<String> },
     Quit,
+    CreateWindow {
+        requester_id: u32,
+        callback_id: u64,
+        params: serde_json::Value,
+    },
 }
 
 // 程序入口函数
@@ -207,7 +212,7 @@ fn main() {
 
     let webview = webview_builder.build(&window).unwrap();
     // WebView 创建完后，用预分配的 id 注册
-    window_manager::register_with_id(window_id, webview);
+    window_manager::register_with_id(window_id, window, webview);
 
     // ============================================================
     // 第 4 步：运行事件循环
@@ -218,7 +223,7 @@ fn main() {
     //     event = 发生的事件（点击、按键、窗口缩放等）
     //     _ = 事件循环目标（EventLoopWindowTarget），这里不需要用，用 _ 忽略
     //     control_flow = 控制事件循环行为的引用（Wait=继续，Exit=退出）
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event, target, control_flow| {
         // 设置默认行为：没有事件时休眠等待（不占 CPU）
         // 如果不设置，默认也是 Wait，但显式写出来更清晰
         *control_flow = ControlFlow::Wait;
@@ -230,32 +235,45 @@ fn main() {
             //   event = 具体的窗口事件类型
             //   .. = 忽略其他字段（比如 window_id）
             // WindowEvent::CloseRequested = 用户点了窗口右上角的 X 按钮
-            Event::WindowEvent { event, .. } => {
+            Event::WindowEvent { window_id: tao_id, event, .. } => {
+                let vokex_id = window_manager::get_id_by_tao_id(tao_id).unwrap_or(0);
                 match event {
                     WindowEvent::CloseRequested => {
-                        ipc::emit_all("app.before-quit", serde_json::json!({}));
-                        *control_flow = ControlFlow::Exit;
+                        // 只有主窗口关闭才退出应用
+                        if vokex_id == 1 {
+                            ipc::emit_all("app.before-quit", serde_json::json!({}));
+                            *control_flow = ControlFlow::Exit;
+                        } else if vokex_id != 0 {
+                            // 非主窗口：drop Window 来关闭它
+                            window_manager::unregister(vokex_id);
+                        }
+                    }
+                    WindowEvent::Destroyed => {
+                        ipc::emit(vokex_id, "window.closed", serde_json::json!({
+                            "windowId": vokex_id
+                        }));
+                        // 非主窗口关闭时注销
+                        if vokex_id != 0 && vokex_id != 1 {
+                            window_manager::unregister(vokex_id);
+                        }
                     }
                     WindowEvent::Resized(size) => {
-                        ipc::emit_all("window.resized", serde_json::json!({
+                        ipc::emit(vokex_id, "window.resized", serde_json::json!({
                             "width": size.width,
                             "height": size.height
                         }));
                     }
                     WindowEvent::Moved(position) => {
-                        ipc::emit_all("window.moved", serde_json::json!({
+                        ipc::emit(vokex_id, "window.moved", serde_json::json!({
                             "x": position.x,
                             "y": position.y
                         }));
                     }
                     WindowEvent::Focused(focused) => {
                         let event_name = if focused { "window.focus" } else { "window.blur" };
-                        ipc::emit_all(event_name, serde_json::json!({
+                        ipc::emit(vokex_id, event_name, serde_json::json!({
                             "focused": focused
                         }));
-                    }
-                    WindowEvent::Destroyed => {
-                        ipc::emit_all("window.closed", serde_json::json!({}));
                     }
                     _ => {}
                 }
@@ -273,6 +291,43 @@ fn main() {
             Event::UserEvent(IpcTask::Quit) => {
                 ipc::emit_all("app.before-quit", serde_json::json!({}));
                 *control_flow = ControlFlow::Exit;
+            }
+
+            Event::UserEvent(IpcTask::CreateWindow { requester_id, callback_id, params }) => {
+                let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("Vokex").to_string();
+                let width = params.get("width").and_then(|v| v.as_f64()).unwrap_or(800.0);
+                let height = params.get("height").and_then(|v| v.as_f64()).unwrap_or(600.0);
+                let url = params.get("url").and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "vokex://index.html".to_string());
+    
+                let new_window = WindowBuilder::new()
+                    .with_title(&title)
+                    .with_inner_size(tao::dpi::LogicalSize::new(width, height))
+                    .build(target)
+                    .unwrap();
+    
+                let new_window_id = window_manager::next_id();
+    
+                let new_webview = wry::WebViewBuilder::new()
+                    .with_url(&url)
+                    .with_devtools(true)
+                    .with_ipc_handler(move |message| {
+                        ipc::handle_message(new_window_id, message);
+                    })
+                    .with_initialization_script(ipc::get_init_script(new_window_id))
+                    .build(&new_window)
+                    .unwrap();
+    
+                window_manager::register_with_id(new_window_id, new_window, new_webview);
+    
+                // 返回新窗口 ID 给请求方
+                let script = ipc::build_response_script(
+                    callback_id,
+                    Some(serde_json::json!({ "id": new_window_id })),
+                    None,
+                );
+                window_manager::eval(requester_id, &script);
             }
 
             // _ = 其他所有事件，不处理（忽略）

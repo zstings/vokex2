@@ -65,6 +65,20 @@ pub fn process_request(window_id: u32, body: &str) {
 
     eprintln!("[IPC] window_id={}, method={}", window_id, req.method);
 
+    // browserWindow.create 需要在事件循环中创建窗口
+    if req.method == "browserWindow.create" {
+        PROXY.with(|p| {
+            if let Some(proxy) = p.borrow().as_ref() {
+                let _ = proxy.send_event(crate::IpcTask::CreateWindow {
+                    requester_id: window_id,
+                    callback_id: req.id,
+                    params: req.params,
+                });
+            }
+        });
+        return;
+    }
+
     if is_async_api(&req.method) {
         // 异步 API：在线程中执行，结果通过 proxy 回主线程
         let proxy = PROXY.with(|p| p.borrow().as_ref().map(|p| p.clone()));
@@ -119,6 +133,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
         match module {
             "app" => crate::apis::app::handle(method, params),
             "fs" => crate::apis::fs::handle(method, params),
+            "browserWindow" => crate::apis::browser_window::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {
@@ -155,6 +170,13 @@ pub fn send_quit_event() {
             let _ = proxy.send_event(crate::IpcTask::Quit);
         }
     });
+}
+
+/// 构建 IPC 响应脚本（供 main.rs 中的 CreateWindow 等使用）
+pub fn build_response_script(id: u64, result: Option<serde_json::Value>, error: Option<String>) -> String {
+    let response = IpcResponse { id, result, error };
+    let json = serde_json::to_string(&response).unwrap_or_default();
+    format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json)
 }
 
 pub fn get_init_script(window_id: u32) -> String {
