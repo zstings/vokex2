@@ -25,6 +25,7 @@ arboard = { version = "3", optional = true }
 muda = "0.17"
 tray-icon = "0.21"
 png = "0.17"
+sysinfo = { version = "0.38", default-features = false, features = ["system"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"

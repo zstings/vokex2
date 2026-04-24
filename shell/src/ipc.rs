@@ -52,7 +52,8 @@ fn is_async_api(method: &str) -> bool {
         "computer.getCpuInfo" | "computer.getMemoryInfo" |
         "computer.getOsInfo" | "computer.getDisplays" |
         "storage.setData" | "storage.getData" | "storage.getKeys" |
-        "storage.has" | "storage.removeData" | "storage.clear"
+        "storage.has" | "storage.removeData" | "storage.clear" |
+        "process.getUptime" | "process.getCpuUsage" | "process.getMemoryInfo"
     )
 }
 
@@ -138,6 +139,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
             "browserWindow" => crate::apis::browser_window::handle(method, params),
             "storage" => crate::apis::storage::handle(method, params),
             "shell" => crate::apis::shell::handle(method, params),
+            "process" => crate::apis::process::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {
