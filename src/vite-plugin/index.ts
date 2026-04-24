@@ -74,7 +74,6 @@ function getPrebuiltShellPath(isDev: boolean): string {
   const fileName = `${process.platform}-${process.arch}${isDev ? '-dev' : ''}.exe`;
   const currentDir = getCurrentDir();
   const path = resolve(currentDir, `../../prebuilt/${fileName}`);
-  console.log(path, 11);
   if (existsSync(path)) return path;
 
   throw new Error(
@@ -99,9 +98,6 @@ async function loadEmbedModule() {
   throw new Error(`找不到 embed 模块: ${embedPath}`);
 }
 
-/** 开发模式数据文件路径 */
-const DEV_DATA_FILE = ".vokex-cli-data.json";
-
 export function vokexPlugin(options: VokexPluginOptions): Plugin {
   let config: ResolvedConfig;
   let isDev = false;
@@ -123,18 +119,9 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
 
   // 启动壳（开发模式）
   function startShell(devUrl: string) {
-    // 插件运行的目录如果没有public就创建一个
-    // 将 options 写入到 public 目录里 文件名叫 vokex-config.json。
-    const publicDir = resolve(process.cwd(), "public");
-    if (!existsSync(publicDir)) {
-      mkdirSync(publicDir, { recursive: true });
-    }
-    const configPath = resolve(publicDir, "vokex-config.json");
-    writeFileSync(configPath, JSON.stringify(options, null, 2), "utf-8");
-
     // 将public直接复制到壳所在的位置 改名 为 devDist
+    const publicDir = resolve(process.cwd(), "public");
     const shellPath = getPrebuiltShellPath(isDev);
-    console.log(shellPath, 111)
     const shellDir = dirname(shellPath);
     const entries = readdirSync(shellDir, { withFileTypes: true });
     // 删除除 exe 以外的所有文件和目录
@@ -168,12 +155,6 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
     }
 
     console.log(`[vokex] 启动壳，加载: ${devUrl}`);
-
-    // 构建配置，添加 dev_mode: true
-    const devConfig = {
-      ...options,
-      dev_mode: true,
-    };
     
     const shell = spawn(shellPath, { 
       stdio: ["ignore", "pipe", "pipe"],
@@ -249,6 +230,15 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
 
     configResolved(resolvedConfig) {
       config = resolvedConfig;
+
+      // 插件运行的目录如果没有public就创建一个
+      // 将 options 写入到 public 目录里 文件名叫 vokex-config.json。
+      const publicDir = resolve(process.cwd(), "public");
+      if (!existsSync(publicDir)) {
+        mkdirSync(publicDir, { recursive: true });
+      }
+      const configPath = resolve(publicDir, "vokex-config.json");
+      writeFileSync(configPath, JSON.stringify(options, null, 2), "utf-8");
     },
 
     configureServer(server) {
@@ -272,12 +262,6 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
         console.log("[vokex] 开发模式，跳过原生构建");
         return;
       }
-      // 构建配置，添加 dev_mode: false
-      const buildConfig = {
-        ...options,
-        dev_mode: false,
-      };
-      writeFileSync(resolve(process.cwd(), config?.build?.outDir || "dist", DEV_DATA_FILE), JSON.stringify(buildConfig), "utf-8");
       // 执行构建
       await doBuild();
     },
