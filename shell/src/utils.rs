@@ -24,7 +24,7 @@ pub fn has_flag(name: &str) -> bool {
 // 通过图片路径加载图片为icon对象 只支持png格式
 pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
     let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    let full_path = exe_dir.join("devDist").join(&icon_path);
+    let full_path = exe_dir.join(&icon_path);
     let png_data = std::fs::read(&full_path).ok()?;
     
     let decoder = png::Decoder::new(std::io::Cursor::new(&png_data));

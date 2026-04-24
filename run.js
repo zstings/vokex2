@@ -47,12 +47,10 @@ function execCommand(command, args, options = {}) {
  */
 async function buildShellDev() {
   console.log("🔨 [Shell] 开始构建 (debug)...");
+  const platforn = process.platform + "-" + process.arch;
   await execCommand("cargo", ["build", "--manifest-path=shell/Cargo.toml"]);
   await execCommand("powershell", [
-    '-Command "New-Item -ItemType Directory -Path \'prebuilt/win32-x64\' -Force"',
-  ]);
-  await execCommand("powershell", [
-    '-Command "Copy-Item \'shell/target/debug/vokex-shell.exe\' \'prebuilt/win32-x64/shell.exe\' -Force"',
+    `-Command "Copy-Item 'shell/target/debug/vokex-shell.exe' 'prebuilt/${platforn}-dev.exe' -Force"`,
   ]);
   console.log("✅ [Shell] 构建完成");
 }
@@ -62,12 +60,10 @@ async function buildShellDev() {
  */
 async function buildShellRelease() {
   console.log("🔨 [Shell] 开始构建 (release)...");
+  const platforn = process.platform + "-" + process.arch;
   await execCommand("cargo", ["build", "--release", "--manifest-path=shell/Cargo.toml"]);
   await execCommand("powershell", [
-    '-Command "New-Item -ItemType Directory -Path \'prebuilt/win32-x64\' -Force"',
-  ]);
-  await execCommand("powershell", [
-    '-Command "Copy-Item \'shell/target/release/vokex-shell.exe\' \'prebuilt/win32-x64/shell.exe\' -Force"',
+    `-Command "Copy-Item 'shell/target/release/vokex-shell.exe' 'prebuilt/${platforn}.exe' -Force"`,
   ]);
   console.log("✅ [Shell] 构建完成");
 }

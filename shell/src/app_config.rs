@@ -25,7 +25,7 @@ pub fn init_app_config() {
         .parent()
         .expect("Failed to get exe directory")
         .to_path_buf();
-    let is_dev = exe_dir.join("devDist").exists();
+    let is_dev = exe_dir.join("vokex-config.json").exists();
     
     let config = if is_dev {
         load_dev_config()
@@ -42,11 +42,10 @@ fn load_dev_config() -> AppConfigSx {
         .expect("Failed to get exe path")
         .parent()
         .expect("Failed to get exe directory")
-        .join("devDist")
         .join("vokex-config.json");
 
     let config_json = std::fs::read_to_string(&config_path)
-        .expect("Failed to read devDist/vokex-config.json");
+        .expect("Failed to read vokex-config.json");
 
     serde_json::from_str(&config_json)
         .expect("Failed to parse vokex-config.json")
