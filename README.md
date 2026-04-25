@@ -59,7 +59,7 @@ await fs.writeFile("output.txt", "Hello World");
 
 // 系统信息
 const cpu = await computer.getCpuInfo();
-const memory = await computer.getMemoryInfo();
+const memory = await process.getMemoryInfo();
 const os = await computer.getOsInfo();
 
 // HTTP 请求
@@ -75,24 +75,22 @@ const user = await storage.getData("user");
 
 ```bash
 npm run build
-# Vite 构建完成后，vokex 插件自动将 dist/ 嵌入到可执行文件
+# 即 vite build，Vite 构建完成后，vokex 插件自动将 dist/ 嵌入到可执行文件
 # 输出到 release/ 目录
-```
-
-或使用 CLI：
-
-```bash
-npx vokex build -i dist -n "我的应用" --width 1200 --height 800
 ```
 
 ### 5. 开发模式
 
 ```bash
-# 方式 1：浏览器开发
 npm run dev
+# 即 vite，Vite 开发服务器启动后，vokex 插件自动启动原生壳
+```
 
-# 方式 2：原生壳 + 开发服务器
-npx vokex dev --dir .
+### 6. 验证构建产物
+
+```bash
+npx vokex validate release/我的应用.exe
+# 验证二进制文件是否为有效的 vokex 应用
 ```
 
 ## 架构
@@ -140,40 +138,45 @@ cargo build --release
 ## API 列表
 
 ### app - 应用管理
-`quit()` `exit(code)` `restart()` `getAppPath()` `getPath(name)` `getVersion()` `getName()` `setName(name)` `getLocale()` `setDockBadge(text)` `requestSingleInstanceLock()` `setProxy(config)` `on(event, callback)`
+`quit()` `exit(code)` `restart()` `getAppPath()` `getPath(name)` `getVersion()` `getName()` `getIdentifier()` `getLocale()` `getPid()` `getArgv()` `getEnv(key)` `getPlatform()` `getArch()` `requestSingleInstanceLock()` `on(event, callback)`
 
 ### browserWindow - 窗口管理
-`create(options)` `getAll()` `getFocused()` `close()` `show()` `hide()` `minimize()` `maximize()` `unmaximize()` `restore()` `focus()` `blur()` `isMaximized()` `isMinimized()` `isFullScreen()` `setFullScreen(flag)` `setTitle(title)` `getTitle()` `setSize(width, height)` `getSize()` `setMinimumSize(width, height)` `setMaximumSize(width, height)` `setResizable(flag)` `setAlwaysOnTop(flag)` `setPosition(x, y)` `getPosition()` `center()` `setOpacity(opacity)` `setBackgroundColor(color)` `setIcon(icon)` `loadFile(path)` `loadURL(url)` `reload()` `setProgressBar(progress)` `setSkipTaskbar(flag)` `capturePage()` `on(event, callback)`
+**静态方法：** `create(options)` `getAll()` `getFocused()` `getById(id)` `getWindow(id)` `getCurrentWindow()` `getFocusedWindow()`
+
+**实例方法：** `close()` `show()` `hide()` `minimize()` `maximize()` `unmaximize()` `restore()` `focus()` `blur()` `isMaximized()` `isMinimized()` `isFullScreen()` `setFullScreen(flag)` `setTitle(title)` `getTitle()` `setSize(width, height)` `getSize()` `setMinimumSize(width, height)` `setMaximumSize(width, height)` `setResizable(flag)` `setAlwaysOnTop(flag)` `setPosition(x, y)` `getPosition()` `center()` `setOpacity(opacity)` `setBackgroundColor(color)` `setIcon(icon)` `loadFile(path)` `loadURL(url)` `reload()` `setProgressBar(progress)` `setSkipTaskbar(flag)` `flashTaskbar(flag)` `on(event, callback)` `off(event, callback)`
+
+> **注意：** `capturePage()` 已声明但 Rust 端尚未实现
 
 ### dialog - 对话框
-`showOpenDialog(options)` `showSaveDialog(options)` `showMessageBox(options)` `showErrorBox(title, content)` `showColorDialog(options)`
+`showMessageBox(options)` `showOpenDialog(options)` `showSaveDialog(options)`
 
 ### menu - 菜单
-`setApplicationMenu(template)` `setContextMenu(template)` `removeContextMenu()` `sendAction(action)`
+`setContextMenu(template)` `onMenuClick(callback)`
+
+> **注意：** `setApplicationMenu(template)` 已声明但尚未实现；`removeContextMenu()` 已声明但尚未实现
 
 ### tray - 系统托盘
-`create(options)` `setToolTip(text)` `setTitle(title)` `setMenu(template)` `setImage(icon)` `destroy()` `displayBalloon(options)` `on(event, callback)`
+> **未实现：** TS 端已声明 `create(options)` `setToolTip(text)` `setTitle(title)` `setMenu(template)` `setImage(icon)` `destroy()` `displayBalloon(options)` `on(event, callback)`，但 Rust 端尚未实现
 
 ### clipboard - 剪贴板
-`readText()` `writeText(text)` `readImage()` `writeImage(image)` `readHTML()` `writeHTML(html)` `hasText()` `clear()`
+`readText()` `writeText(text)` `clear()`
 
 ### notification - 系统通知
-`show(options)` `isSupported()`
-
-### screen - 屏幕信息
-`getAllDisplays()` `getPrimaryDisplay()` `getCursorScreenPoint()`
+`show(options)`
 
 ### fs - 文件系统
-`readFile(path)` `readFileBinary(path)` `writeFile(path, data)` `appendFile(path, data)` `deleteFile(path)` `readDir(path)` `createDir(path)` `removeDir(path)` `stat(path)` `exists(path)` `copyFile(source, destination)` `moveFile(source, destination)` `watch(path)`
+`readFile(path)` `readFileBinary(path)` `writeFile(path, data)` `appendFile(path, data)` `deleteFile(path)` `readDir(path)` `createDir(path)` `removeDir(path)` `stat(path)` `exists(path)` `copyFile(source, destination)` `moveFile(source, destination)`
 
 ### shell - 系统命令
 `openExternal(url)` `openPath(path)` `execCommand(command, options?)` `trashItem(path)`
 
 ### process - 进程管理
-`getPid()` `getArgv()` `getEnv(key)` `getPlatform()` `getArch()` `getUptime()` `getCpuUsage()` `getMemoryInfo()` `exit(code)` `kill(pid, signal?)` `on(event, callback)`
+`getUptime()` `getCpuUsage()` `getMemoryInfo()` `hostname()` `env(key)` `kill(pid, signal?)`
 
-### computer - 系统硬件信息 (Windows)
-`getCpuInfo()` `getMemoryInfo()` `getOsInfo()` `getDisplays()` `getMousePosition()` `getKeyboardLayout()`
+### computer - 系统硬件信息
+`getCpuInfo()` `getOsInfo()` `getDisplays()` `getMousePosition()` `getKeyboardLayout()`
+
+> **注意：** `getMousePosition()` `getKeyboardLayout()` `getDisplays()` 仅 Windows 平台实现
 
 ### http - 网络请求
 `get(url, options?)` `post(url, data, options?)` `put(url, data, options?)` `delete(url, options?)` `request(options)`
@@ -182,7 +185,7 @@ cargo build --release
 `setData(key, value)` `getData(key)` `getKeys()` `has(key)` `removeData(key)` `clear()`
 
 ### events - 事件总线
-`on(event, callback)` `off(event, callback)` `once(event, callback)` `emit(event, data)`
+`on(event, callback)` `off(event, callback)` `emit(event, data)`
 
 ### shortcut - 全局快捷键
 （预留接口，未实现）
@@ -227,12 +230,6 @@ interface CpuInfo {
   architecture: string;
 }
 
-interface MemoryInfo {
-  total: number;
-  available: number;
-  used: number;
-}
-
 interface OsInfo {
   name: string;
   version: string;
@@ -255,7 +252,7 @@ interface CpuUsage {
   system: number;
 }
 
-interface MemoryInfo {
+interface ProcessMemoryInfo {
   rss: number;
   heapTotal: number;
 }
@@ -278,22 +275,20 @@ interface ExecOptions {
 
 | 模块 | 完成度 | 说明 |
 |------|--------|------|
-| app | 13/24 | 核心功能完成 |
-| browserWindow | 框架已有 | 基于 tao/wry |
-| dialog | 占位 | 待实现 |
-| menu | 未开始 | |
-| tray | 未开始 | |
-| clipboard | 占位 | 待实现 |
-| notification | 1/2 | 基础功能完成 |
-| screen | 未开始 | |
-| fs | 12/13 | 仅 watch 未完成 |
+| app | 15/15 | 完整实现 |
+| browserWindow | 34/35 | capturePage 未实现 |
+| dialog | 3/3 | 完整实现 |
+| menu | 1/3 | 仅 setContextMenu 可用，setApplicationMenu/removeContextMenu 未实现 |
+| tray | 0/7 | TS 端已声明，Rust 端未实现 |
+| clipboard | 3/3 | 完整实现 |
+| notification | 1/1 | 完整实现 |
+| fs | 12/12 | 完整实现 |
 | shell | 4/4 | 完整实现 |
-| process | 10/11 | 仅 on('exit') 未完成 |
-| computer | 6/6 | Windows 平台完整实现 |
+| process | 6/6 | 完整实现 |
+| computer | 5/5 | 完整实现（部分 API 仅 Windows） |
 | http | 5/5 | 完整实现 |
 | storage | 6/6 | 完整实现 |
-| events | 未开始 | |
-| shortcut | 未开始 | |
+| events | 3/3 | 完整实现（纯前端） |
 
 ## License
 
