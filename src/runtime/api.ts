@@ -665,29 +665,6 @@ export const tray: TrayAPI = {
 };
 
 /**
- * NotificationOptions 接口
- */
-export interface NotificationOptions {
-  /** 通知标题（必填） */
-  title: string;
-  /** 通知内容 */
-  body?: string;
-  /** 图标路径 */
-  icon?: string;
-  /** 是否静音 */
-  silent?: boolean;
-}
-
-/**
- * 通知相关 API
- */
-export const notification = {
-  show: (options: NotificationOptions): Promise<void> => {
-    return vokexCall('notification.show', [options]);
-  },
-};
-
-/**
  * 底层调用（兼容旧版 API）
  */
 export const call = (method: string, args: any[] = []): Promise<any> => {
@@ -806,4 +783,5 @@ export { process } from './apis/process';
 export { http } from './apis/http';
 export { clipboard } from './apis/clipboard';
 export { dialog } from './apis/dialog';
+export { notification } from './apis/notification';
 

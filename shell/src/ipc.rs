@@ -48,7 +48,7 @@ fn is_async_api(method: &str) -> bool {
         "fs.exists" | "fs.copyFile" | "fs.moveFile" |
         "http.request" | "http.get" | "http.post" |
         "http.put" | "http.delete" |
-        "shell.execCommand" |
+        "shell.execCommand" | "notification.show" |
         "computer.getCpuInfo" | "computer.getMemoryInfo" |
         "computer.getOsInfo" | "computer.getDisplays" |
         "storage.setData" | "storage.getData" | "storage.getKeys" |
@@ -143,6 +143,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
             "http" => crate::apis::http::handle(method, params),
             "clipboard" => crate::apis::clipboard::handle(method, params),
             "dialog" => crate::apis::dialog::handle(method, params),
+            "notification" => crate::apis::notification::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {
