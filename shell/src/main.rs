@@ -17,6 +17,8 @@ mod window_manager;
 mod apis;
 use utils::{load_image, get_webview_data_dir};
 
+use serde_json::json;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::fs::File;
 use std::path::Path;
@@ -121,6 +123,14 @@ enum IpcTask {
         callback_id: u64,
         params: serde_json::Value,
     },
+    ContextMenu {
+        window_id: u32,
+        callback_id: u64,
+        menu: serde_json::Value,
+        x: f64,
+        y: f64,
+    },
+    MenuEvent(muda::MenuEvent),
 }
 
 // 程序入口函数
@@ -151,6 +161,11 @@ fn main() {
     let event_loop = EventLoopBuilder::<IpcTask>::with_user_event().build();
     let proxy = event_loop.create_proxy();
     ipc::set_proxy(proxy.clone());
+
+    // 右键菜单点击事件转发到事件循环（muda 处理右键菜单的事件）
+    muda::MenuEvent::set_event_handler(Some(move |event: muda::MenuEvent| {
+        let _ = proxy.send_event(IpcTask::MenuEvent(event));
+    }));
 
     // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
     let icon = {
@@ -278,7 +293,6 @@ fn main() {
                     _ => {}
                 }
             },
-
             
             Event::UserEvent(IpcTask::HandleRequest { window_id, body }) => {
                 ipc::process_request(window_id, &body);
@@ -328,6 +342,47 @@ fn main() {
                     None,
                 );
                 window_manager::eval(requester_id, &script);
+            }
+            
+            // 右键菜单（muda）
+            Event::UserEvent(IpcTask::ContextMenu { window_id, callback_id, menu, x, y }) => {
+                let result = (|| -> Result<(), String> {
+                    let menu = crate::apis::menu::build_menu(&menu)?;
+                    crate::window_manager::MANAGER.with(|m| {
+                        let manager = m.borrow();
+                        if let Some(entry) = manager.get(window_id) {
+                            let handle = entry.window.window_handle()
+                                .map_err(|e| format!("Failed to get window handle: {}", e))?;
+                            let raw = handle.as_raw();
+                            #[cfg(target_os = "windows")]
+                            let hwnd = match raw {
+                                raw_window_handle::RawWindowHandle::Win32(h) => h.hwnd.get() as isize,
+                                _ => return Err("Unsupported platform".to_string()),
+                            };
+                            #[cfg(target_os = "windows")]
+                            unsafe {
+                                use muda::ContextMenu;
+                                let position = muda::dpi::PhysicalPosition::new(x, y);
+                                menu.show_context_menu_for_hwnd(hwnd, Some(position.into()));
+                            }
+                            Ok(())
+                        } else {
+                            Err("Window not found".to_string())
+                        }
+                    })
+                })();
+                let script = ipc::build_response_script(
+                    callback_id,
+                    Some(json!(true)),
+                    result.err(),
+                );
+                window_manager::eval(window_id, &script);
+            }
+            
+            // 右键菜单点击事件（muda 处理）
+            Event::UserEvent(IpcTask::MenuEvent(event)) => {
+                let id = event.id.0.to_string();
+                ipc::emit_all("menu.click", json!({ "id": id }));
             }
 
             // _ = 其他所有事件，不处理（忽略）

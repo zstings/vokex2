@@ -20,7 +20,7 @@ struct IpcResponse {
 }
 
 thread_local! {
-    static PROXY: RefCell<Option<EventLoopProxy<crate::IpcTask>>> = RefCell::new(None);
+    pub static PROXY: RefCell<Option<EventLoopProxy<crate::IpcTask>>> = RefCell::new(None);
 }
 
 pub fn set_proxy(proxy: EventLoopProxy<crate::IpcTask>) {
@@ -76,6 +76,31 @@ pub fn process_request(window_id: u32, body: &str) {
                     requester_id: window_id,
                     callback_id: req.id,
                     params: req.params,
+                });
+            }
+        });
+        return;
+    }
+    // menu.setApplicationMenu 暂未实现（WebView2 覆盖菜单栏问题，详见 docs/setApplicationMenu-issue.md）
+    if req.method == "menu.setApplicationMenu" {
+        let response = IpcResponse { id: req.id, result: Some(serde_json::Value::String("待实现".to_string())), error: None };
+        let json = serde_json::to_string(&response).unwrap_or_default();
+        let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
+        crate::window_manager::eval(window_id, &script);
+        return;
+    }
+    if req.method == "menu.setContextMenu" {
+        let x = req.params.get("x").and_then(|v: &serde_json::Value| v.as_f64()).unwrap_or(0.0);
+        let y = req.params.get("y").and_then(|v: &serde_json::Value| v.as_f64()).unwrap_or(0.0);
+        let menu = req.params.get("menu").cloned().unwrap_or(serde_json::json!([]));
+        PROXY.with(|p| {
+            if let Some(proxy) = p.borrow().as_ref() {
+                let _ = proxy.send_event(crate::IpcTask::ContextMenu {
+                    window_id,
+                    callback_id: req.id,
+                    menu,
+                    x,
+                    y,
                 });
             }
         });

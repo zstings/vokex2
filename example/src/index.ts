@@ -1,4 +1,4 @@
-import { app, browserWindow, BrowserWindow, menu, tray, Tray } from "vokex";
+import { app, browserWindow, BrowserWindow, tray, Tray } from "vokex";
 
 import { log, clear } from './utils'
 
@@ -384,112 +384,6 @@ document.getElementById("btn-win-hide-show")?.addEventListener("click", async ()
   }
 });
 
-// ==================== Menu API 测试 ====================
-
-document.getElementById("btn-menu-set")?.addEventListener("click", async () => {
-  clear();
-  log("=== menu.setApplicationMenu() ===");
-  try {
-    await menu.setApplicationMenu([
-      {
-        type: "submenu",
-        label: "文件",
-        submenu: [
-          { type: "normal", id: "new", label: "新建", accelerator: "Ctrl+N" },
-          { type: "normal", id: "open", label: "打开", accelerator: "Ctrl+O" },
-          { type: "separator" },
-          { type: "normal", id: "save", label: "保存", accelerator: "Ctrl+S" },
-          { type: "separator" },
-          { type: "native", nativeLabel: "quit" },
-        ],
-      },
-      {
-        type: "submenu",
-        label: "编辑",
-        submenu: [
-          { type: "native", nativeLabel: "undo" },
-          { type: "native", nativeLabel: "redo" },
-          { type: "separator" },
-          { type: "native", nativeLabel: "cut" },
-          { type: "native", nativeLabel: "copy" },
-          { type: "native", nativeLabel: "paste" },
-          { type: "native", nativeLabel: "selectAll" },
-        ],
-      },
-      {
-        type: "submenu",
-        label: "视图",
-        submenu: [
-          { type: "checkbox", id: "dark-mode", label: "深色模式", checked: false },
-          { type: "separator" },
-          { type: "normal", id: "fullscreen", label: "全屏", accelerator: "F11" },
-        ],
-      },
-      {
-        type: "submenu",
-        label: "帮助",
-        submenu: [
-          { type: "normal", id: "about", label: "关于 Vokex" },
-        ],
-      },
-    ]);
-    log("✅ 菜单栏已设置");
-    log("  文件: 新建/打开/保存/退出");
-    log("  编辑: 撤销/重做/剪切/复制/粘贴/全选");
-    log("  视图: 深色模式(复选框)/全屏");
-    log("  帮助: 关于");
-    log("  提示: 点击菜单项会触发 menu.clicked 事件");
-  } catch (error: any) {
-    log(`❌ 错误: ${error.message}`);
-  }
-});
-
-document.getElementById("btn-menu-remove")?.addEventListener("click", async () => {
-  clear();
-  log("=== 移除菜单栏 ===");
-  try {
-    await menu.setApplicationMenu([]);
-    log("✅ 菜单栏已移除（设置空菜单）");
-  } catch (error: any) {
-    log(`❌ 错误: ${error.message}`);
-  }
-});
-
-document.getElementById("btn-menu-listen")?.addEventListener("click", async () => {
-  clear();
-  log("=== 监听菜单点击事件 ===");
-  try {
-    menu.on("clicked", ({ menuId }) => {
-      log(`📢 菜单点击: id = "${menuId}"`);
-
-      // 根据菜单 ID 执行对应操作
-      switch (menuId) {
-        case "new":
-          log("  → 新建文件");
-          break;
-        case "open":
-          log("  → 打开文件");
-          break;
-        case "save":
-          log("  → 保存文件");
-          break;
-        case "fullscreen":
-          log("  → 切换全屏");
-          break;
-        case "about":
-          log("  → Vokex 桌面应用框架 v0.1.0");
-          break;
-        default:
-          log(`  → 未处理的菜单项: ${menuId}`);
-      }
-    });
-    log("✅ 菜单事件监听已注册");
-    log("  提示: 现在点击菜单项，事件会显示在此处");
-  } catch (error: any) {
-    log(`❌ 错误: ${error.message}`);
-  }
-});
-
 // ==================== Tray API 测试 ====================
 
 let currentTray: Tray | null = null;
@@ -599,22 +493,22 @@ document.getElementById("btn-tray-listen")?.addEventListener("click", async () =
     });
 
     // 同时监听托盘菜单点击
-    menu.on("clicked", ({ menuId }) => {
-      if (menuId.startsWith("tray-")) {
-        log(`📢 托盘菜单点击: ${menuId}`);
-        switch (menuId) {
-          case "tray-show":
-            log("  → 显示窗口");
-            break;
-          case "tray-quit":
-            log("  → 退出应用");
-            break;
-          case "tray-settings":
-            log("  → 打开设置");
-            break;
-        }
-      }
-    });
+    // menu.on("clicked", ({ menuId }) => {
+    //   if (menuId.startsWith("tray-")) {
+    //     log(`📢 托盘菜单点击: ${menuId}`);
+    //     switch (menuId) {
+    //       case "tray-show":
+    //         log("  → 显示窗口");
+    //         break;
+    //       case "tray-quit":
+    //         log("  → 退出应用");
+    //         break;
+    //       case "tray-settings":
+    //         log("  → 打开设置");
+    //         break;
+    //     }
+    //   }
+    // });
 
     log("✅ 托盘事件监听已注册");
     log("  监听: click / right-click / double-click");

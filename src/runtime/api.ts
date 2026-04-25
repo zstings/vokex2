@@ -431,67 +431,6 @@ export interface MenuItem {
   nativeLabel?: NativeLabel;
 }
 
-/**
- * 菜单 API 接口
- */
-export interface MenuAPI {
-  /** 设置应用菜单栏 */
-  setApplicationMenu: (template: MenuItem[]) => Promise<void>;
-  /** 设置右键上下文菜单 */
-  setContextMenu: (template: MenuItem[]) => Promise<void>;
-  /** 移除右键上下文菜单 */
-  removeContextMenu: () => Promise<void>;
-  /** 向应用发送菜单动作（macOS） */
-  sendAction: (action: string) => Promise<void>;
-  /** 监听菜单点击事件 */
-  on: (event: 'clicked', callback: (data: { menuId: string }) => void) => void;
-}
-
-/**
- * 原生菜单相关 API
- */
-export const menu: MenuAPI = {
-  /**
-   * 设置应用菜单栏
-   * @param template 菜单项模板数组
-   */
-  setApplicationMenu: (template: MenuItem[]): Promise<void> => {
-    return vokexCall('menu.setApplicationMenu', [template]);
-  },
-
-  /**
-   * 设置右键上下文菜单
-   * @param template 菜单项模板数组
-   */
-  setContextMenu: (template: MenuItem[]): Promise<void> => {
-    return vokexCall('menu.setContextMenu', [template]);
-  },
-
-  /**
-   * 移除右键上下文菜单
-   */
-  removeContextMenu: (): Promise<void> => {
-    return vokexCall('menu.removeContextMenu');
-  },
-
-  /**
-   * 向应用发送菜单动作（macOS）
-   * @param action 菜单动作字符串
-   */
-  sendAction: (action: string): Promise<void> => {
-    return vokexCall('menu.sendAction', [action]);
-  },
-
-  /**
-   * 监听菜单点击事件
-   * @param event 事件名
-   * @param callback 回调函数，接收菜单项 ID
-   */
-  on: (event: 'clicked', callback: (data: { menuId: string }) => void): void => {
-    events.on(`menu.${event}`, callback);
-  },
-};
-
 // ==============================
 // 系统托盘 API
 // ==============================
@@ -724,4 +663,5 @@ export { clipboard } from './apis/clipboard';
 export { dialog } from './apis/dialog';
 export { notification } from './apis/notification';
 export { computer } from './apis/computer';
+export { menu } from './apis/menu';
 

@@ -90,7 +90,7 @@ impl WindowManager {
 
 // 全局单例，thread_local 因为只在主线程用
 thread_local! {
-    static MANAGER: RefCell<WindowManager> = RefCell::new(WindowManager::new());
+    pub static MANAGER: RefCell<WindowManager> = RefCell::new(WindowManager::new());
 }
 
 /// 注册窗口，返回窗口 ID
