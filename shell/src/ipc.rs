@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use tao::event_loop::EventLoopProxy;
+use std::sync::Arc;
 
 #[derive(Deserialize, Debug)]
 pub struct IpcRequest {
@@ -21,6 +22,16 @@ struct IpcResponse {
 
 thread_local! {
     pub static PROXY: RefCell<Option<EventLoopProxy<crate::IpcTask>>> = RefCell::new(None);
+}
+
+thread_local! {
+    pub static THREAD_POOL: RefCell<Option<Arc<crate::ThreadPool>>> = RefCell::new(None);
+}
+
+pub fn set_thread_pool(pool: Arc<crate::ThreadPool>) {
+    THREAD_POOL.with(|p| {
+        *p.borrow_mut() = Some(pool);
+    });
 }
 
 pub fn set_proxy(proxy: EventLoopProxy<crate::IpcTask>) {
@@ -108,23 +119,28 @@ pub fn process_request(window_id: u32, body: &str) {
     }
 
     if is_async_api(&req.method) {
-        // 异步 API：在线程中执行，结果通过 proxy 回主线程
+        // 异步 API：投递到线程池执行，结果通过 proxy 回主线程
         let proxy = PROXY.with(|p| p.borrow().as_ref().map(|p| p.clone()));
         let method = req.method.clone();
         let params = req.params.clone();
 
-        std::thread::spawn(move || {
-            let response = match dispatch(&method, &params) {
-                Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
-                Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
-            };
+        THREAD_POOL.with(|tp| {
+            if let Some(pool) = tp.borrow().as_ref() {
+                let pool = pool.clone();
+                pool.run(move || {
+                    let response = match dispatch(&method, &params) {
+                        Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
+                        Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
+                    };
 
-            if let Some(proxy) = proxy {
-                let _ = proxy.send_event(crate::IpcTask::HandleAsyncResponse {
-                    window_id,
-                    id: response.id,
-                    result: response.result,
-                    error: response.error,
+                    if let Some(proxy) = proxy {
+                        let _ = proxy.send_event(crate::IpcTask::HandleAsyncResponse {
+                            window_id,
+                            id: response.id,
+                            result: response.result,
+                            error: response.error,
+                        });
+                    }
                 });
             }
         });

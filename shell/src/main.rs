@@ -33,6 +33,34 @@ use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::WindowBuilder;
 use std::sync::Mutex;
+use std::sync::Arc;
+use std::sync::mpsc;
+use std::thread;
+
+/// 线程池
+struct ThreadPool {
+    sender: mpsc::Sender<Box<dyn FnOnce() + Send>>,
+}
+
+impl ThreadPool {
+    fn new(size: usize) -> Self {
+        let (sender, receiver) = mpsc::channel::<Box<dyn FnOnce() + Send>>();
+        let receiver = Arc::new(Mutex::new(receiver));
+        for _ in 0..size {
+            let receiver = receiver.clone();
+            thread::spawn(move || {
+                while let Ok(task) = receiver.lock().unwrap().recv() {
+                    task();
+                }
+            });
+        }
+        Self { sender }
+    }
+
+    fn run<F: FnOnce() + Send + 'static>(&self, task: F) {
+        let _ = self.sender.send(Box::new(task));
+    }
+}
 
 
 // ==============================
@@ -206,6 +234,9 @@ fn main() {
     let event_loop = EventLoopBuilder::<IpcTask>::with_user_event().build();
     let proxy = event_loop.create_proxy();
     ipc::set_proxy(proxy.clone());
+
+    let thread_pool = Arc::new(ThreadPool::new(4));
+    ipc::set_thread_pool(thread_pool.clone());
 
     // 右键菜单点击事件转发到事件循环（muda 处理右键菜单的事件）
     muda::MenuEvent::set_event_handler(Some(move |event: muda::MenuEvent| {
