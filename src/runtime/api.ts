@@ -713,67 +713,6 @@ export interface OsInfo {
   arch: string;
 }
 
-/**
- * 显示器信息
- */
-export interface Display {
-  /** 显示器 ID */
-  id: string;
-  /** 显示器名称 */
-  name: string;
-  /** 宽度（像素） */
-  width: number;
-  /** 高度（像素） */
-  height: number;
-  /** 缩放比例 */
-  scaleFactor: number;
-  /** 是否为主显示器 */
-  isPrimary: boolean;
-}
-
-/**
- * Computer API 接口
- */
-export interface ComputerAPI {
-  /** 获取 CPU 信息 */
-  getCpuInfo: () => Promise<CpuInfo>;
-  /** 获取系统内存信息 */
-  getMemoryInfo: () => Promise<MemoryInfo>;
-  /** 获取操作系统信息 */
-  getOsInfo: () => Promise<OsInfo>;
-  /** 获取显示器列表 */
-  getDisplays: () => Promise<Display[]>;
-  /** 获取鼠标当前位置 */
-  getMousePosition: () => Promise<{ x: number; y: number }>;
-  /** 获取当前键盘布局 */
-  getKeyboardLayout: () => Promise<string>;
-}
-
-/**
- * 系统硬件与信息相关 API
- */
-export const computer: ComputerAPI = {
-  /** 获取 CPU 信息 */
-  getCpuInfo: (): Promise<CpuInfo> => vokexCall('computer.getCpuInfo'),
-
-  /** 获取系统内存信息 */
-  getMemoryInfo: (): Promise<MemoryInfo> => vokexCall('computer.getMemoryInfo'),
-
-  /** 获取操作系统信息 */
-  getOsInfo: (): Promise<OsInfo> => vokexCall('computer.getOsInfo'),
-
-  /** 获取显示器列表 */
-  getDisplays: (): Promise<Display[]> => vokexCall('computer.getDisplays'),
-
-  /** 获取鼠标当前位置 */
-  getMousePosition: (): Promise<{ x: number; y: number }> => vokexCall('computer.getMousePosition'),
-
-  /** 获取当前键盘布局 */
-  getKeyboardLayout: (): Promise<string> => vokexCall('computer.getKeyboardLayout'),
-};
-
-
-
 export { app } from './apis/app';
 export { events } from './apis/events';
 export { storage } from './apis/storage';
@@ -784,4 +723,5 @@ export { http } from './apis/http';
 export { clipboard } from './apis/clipboard';
 export { dialog } from './apis/dialog';
 export { notification } from './apis/notification';
+export { computer } from './apis/computer';
 

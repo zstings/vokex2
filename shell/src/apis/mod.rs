@@ -8,3 +8,4 @@ pub mod http;
 pub mod clipboard;
 pub mod dialog;
 pub mod notification;
+pub mod computer;
