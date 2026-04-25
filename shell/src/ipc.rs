@@ -59,11 +59,7 @@ fn is_async_api(method: &str) -> bool {
         "fs.exists" | "fs.copyFile" | "fs.moveFile" |
         "http.request" | "http.get" | "http.post" |
         "http.put" | "http.delete" |
-        "shell.execCommand" | "notification.show" |
-        "computer.getCpuInfo" | "computer.getMemoryInfo" |
-        "computer.getOsInfo" | "computer.getDisplays" |
-        "storage.setData" | "storage.getData" | "storage.getKeys" |
-        "storage.has" | "storage.removeData" | "storage.clear" |
+        "shell.execCommand" |
         "process.getUptime" | "process.getCpuUsage" | "process.getMemoryInfo"
     )
 }
