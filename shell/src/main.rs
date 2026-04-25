@@ -18,7 +18,7 @@ mod apis;
 use utils::{load_image, get_webview_data_dir};
 
 use serde_json::json;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::fs::File;
 use std::path::Path;
@@ -32,6 +32,7 @@ use tao::event::{Event, WindowEvent};
 // - EventLoop：事件循环本身，每个 GUI 程序有且只有一个
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::WindowBuilder;
+use std::sync::Mutex;
 
 
 // ==============================
@@ -133,6 +134,50 @@ enum IpcTask {
     MenuEvent(muda::MenuEvent),
 }
 
+/// 统一构建 WebView（所有窗口共用）
+fn build_webview(
+    window: &tao::window::Window,
+    window_id: u32,
+    url: &str,
+    web_context: &mut wry::WebContext,
+    #[cfg(not(debug_assertions))] resources: &std::sync::Arc<Resources>,
+) -> Result<wry::WebView, String> {
+    let mut builder = wry::WebViewBuilder::new_with_web_context(web_context)
+        .with_url(url)
+        .with_devtools(true)
+        .with_ipc_handler(move |message| {
+            ipc::handle_message(window_id, message);
+        })
+        .with_initialization_script(ipc::get_init_script(window_id));
+
+    #[cfg(not(debug_assertions))]
+    let builder = {
+        let resources = resources.clone();
+        builder.with_custom_protocol(
+            "vokex".to_string(),
+            move |_webview_id, request| {
+                let uri = request.uri();
+                let path = uri.path().trim_start_matches('/');
+                let path = if path.is_empty() { "index.html" } else { path };
+                if let Some(content) = resources.get(path) {
+                    let mime = mime_guess::from_path(path).first_or_text_plain().to_string();
+                    wry::http::Response::builder()
+                        .header("Content-Type", mime)
+                        .body(content.to_vec().into())
+                        .unwrap()
+                } else {
+                    wry::http::Response::builder()
+                        .status(404)
+                        .body("Not Found".as_bytes().to_vec().into())
+                        .unwrap()
+                }
+            },
+        )
+    };
+
+    builder.build(window).map_err(|e| format!("Failed to build webview: {}", e))
+}
+
 // 程序入口函数
 fn main() {
 
@@ -180,54 +225,27 @@ fn main() {
         .with_window_icon(icon)
         .build(&event_loop)
         .unwrap();
-    // 创建 WebView（URL、协议、数据目录 → WebViewBuilder）
+    // 创建 WebView（所有窗口共用 web_context）
     let data_dir = get_webview_data_dir(&app_config.identifier);
-    let mut web_context = wry::WebContext::new(Some(data_dir));
-    let url = app_config.dev_url.unwrap_or_else(|| "vokex://index.html".to_string());
+    let web_context = std::sync::Arc::new(Mutex::new(wry::WebContext::new(Some(data_dir))));
+    // 默认 URL：debug 用开发地址，release 用 vokex://index.html
+    let default_url = {
+        #[cfg(debug_assertions)]
+        { app_config.dev_url.clone().unwrap_or_else(|| "http://localhost:5173".to_string()) }
+        #[cfg(not(debug_assertions))]
+        { "vokex://index.html".to_string() }
+    };
     // 先分配 window_id，这样闭包和 init_script 都能用
     let window_id = window_manager::next_id();
-    // WebViewBuilder（网页内容）创建 WebView（在窗口里嵌入浏览器）
-    let webview_builder = wry::WebViewBuilder::new_with_web_context(&mut web_context)
-        .with_url(url)
-        .with_devtools(true)
-        .with_ipc_handler(move |message| {
-            ipc::handle_message(window_id, message);
-        })
-        .with_initialization_script(ipc::get_init_script(window_id));
-    // 正式模式：注册自定义协议，加载嵌入的资源
-    #[cfg(not(debug_assertions))]
-    let webview_builder = {
-        let resources = resources.clone();
-
-        webview_builder.with_custom_protocol(
-            "vokex".to_string(),
-            move |_webview_id, request| {
-                // url 是字符串，比如 "vokex://index.html" 或 "vokex://assets/style.css"
-                let uri = request.uri();
-                let path = uri.path().trim_start_matches('/');
-                let path = if path.is_empty() { "index.html" } else { path };
-        
-                if let Some(content) = resources.get(path) {
-                    let mime = mime_guess::from_path(path)
-                        .first_or_text_plain()
-                        .to_string();
-                    wry::http::Response::builder()
-                        .header("Content-Type", mime)
-                        .body(content.to_vec().into())
-                        .unwrap()
-                } else {
-                    wry::http::Response::builder()
-                        .status(404)
-                        .body("Not Found".as_bytes().to_vec().into())
-                        .unwrap()
-                }
-            },
-        )
-    };
-
-    let webview = webview_builder.build(&window).unwrap();
-    // WebView 创建完后，用预分配的 id 注册
-    window_manager::register_with_id(window_id, window, webview);
+    // 构建主窗口 WebView
+    {
+        let mut ctx = web_context.lock().unwrap();
+        #[cfg(not(debug_assertions))]
+        let webview = build_webview(&window, window_id, &default_url, &mut ctx, &resources).unwrap();
+        #[cfg(debug_assertions)]
+        let webview = build_webview(&window, window_id, &default_url, &mut ctx).unwrap();
+        window_manager::register_with_id(window_id, window, webview);
+    }
 
     // ============================================================
     // 第 4 步：运行事件循环
@@ -313,29 +331,26 @@ fn main() {
                 let height = params.get("height").and_then(|v| v.as_f64()).unwrap_or(600.0);
                 let url = params.get("url").and_then(|v| v.as_str())
                     .map(|s| s.to_string())
-                    .unwrap_or_else(|| "vokex://index.html".to_string());
-    
+                    .unwrap_or_else(|| default_url.clone());
+
                 let new_window = WindowBuilder::new()
                     .with_title(&title)
                     .with_inner_size(tao::dpi::LogicalSize::new(width, height))
                     .build(target)
                     .unwrap();
-    
+
                 let new_window_id = window_manager::next_id();
-    
-                let new_webview = wry::WebViewBuilder::new()
-                    .with_url(&url)
-                    .with_devtools(true)
-                    .with_ipc_handler(move |message| {
-                        ipc::handle_message(new_window_id, message);
-                    })
-                    .with_initialization_script(ipc::get_init_script(new_window_id))
-                    .build(&new_window)
-                    .unwrap();
-    
+                let new_webview = {
+                    let mut ctx = web_context.lock().unwrap();
+                    #[cfg(not(debug_assertions))]
+                    let wv = build_webview(&new_window, new_window_id, &url, &mut ctx, &resources).unwrap();
+                    #[cfg(debug_assertions)]
+                    let wv = build_webview(&new_window, new_window_id, &url, &mut ctx).unwrap();
+                    wv
+                };
+
                 window_manager::register_with_id(new_window_id, new_window, new_webview);
-    
-                // 返回新窗口 ID 给请求方
+
                 let script = ipc::build_response_script(
                     callback_id,
                     Some(serde_json::json!({ "id": new_window_id })),
