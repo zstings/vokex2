@@ -2,11 +2,12 @@ use serde_json::{json, Value};
 
 pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
     match method {
-        "process.getUptime" => {
-            let uptime = std::time::SystemTime::now()
+       "process.getUptime" => {
+            let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
+            let uptime = now - crate::START_TIME.load(std::sync::atomic::Ordering::Relaxed);
             Ok(json!(uptime))
         }
 

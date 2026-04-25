@@ -55,16 +55,15 @@ fn open_path(path: &str) -> Result<(), String> {
 
 /// 执行系统命令
 fn exec_command(command: &str, cwd: Option<&str>, env: Option<&Value>) -> Result<Value, String> {
+    #[cfg(target_os = "windows")]
     let mut cmd = Command::new("cmd");
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = Command::new("/bin/sh");
     
     #[cfg(target_os = "windows")]
-    {
-        cmd.args(["/C", command]);
-    }
+    cmd.args(["/C", command]);
     #[cfg(not(target_os = "windows"))]
-    {
-        cmd.args(["-c", command]);
-    }
+    cmd.args(["-c", command]);
 
     if let Some(dir) = cwd {
         cmd.current_dir(dir);

@@ -36,6 +36,8 @@ use std::sync::Mutex;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
+use std::sync::atomic::{AtomicU64, Ordering};
+pub static START_TIME: AtomicU64 = AtomicU64::new(0);
 
 /// 线程池
 struct ThreadPool {
@@ -208,6 +210,14 @@ fn build_webview(
 
 // 程序入口函数
 fn main() {
+    // 记录进程运行的起始时间
+    START_TIME.store(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        Ordering::Relaxed
+    );
 
     // 初始化配置
     app_config::init_app_config();
