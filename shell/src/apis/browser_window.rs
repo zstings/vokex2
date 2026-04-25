@@ -278,28 +278,10 @@ fn get_all(_params: &Value) -> Result<Value, String> {
     for id in ids {
         let info = crate::window_manager::MANAGER.with(|m| {
             let manager = m.borrow();
-            if let Some(entry) = manager.get(id) {
-                let size = entry.window.inner_size();
-                let pos = entry.window.outer_position().unwrap_or(tao::dpi::PhysicalPosition::new(0, 0));
-                Some(json!({
-                    "id": id,
-                    "title": entry.window.title(),
-                    "width": size.width,
-                    "height": size.height,
-                    "x": pos.x,
-                    "y": pos.y,
-                    "is_maximized": entry.window.is_maximized(),
-                    "is_minimized": entry.window.is_minimized(),
-                    "is_fullscreen": entry.window.fullscreen().is_some(),
-                    "is_focused": entry.window.is_focused(),
-                    "is_visible": entry.window.is_visible()
-                }))
-            } else {
-                None
-            }
+            manager.get(id).map(|entry| entry.get_info(id))
         });
         if let Some(info) = info {
-            windows.push(info);
+            windows.push(serde_json::to_value(info).unwrap_or_default());
         }
     }
     Ok(json!(windows))
@@ -312,17 +294,13 @@ fn get_focused(_params: &Value) -> Result<Value, String> {
             let manager = m.borrow();
             if let Some(entry) = manager.get(id) {
                 if entry.window.is_focused() {
-                    return Some(json!({
-                        "id": id,
-                        "title": entry.window.title(),
-                        "is_focused": true
-                    }));
+                    return Some(entry.get_info(id));
                 }
             }
             None
         });
-        if let Some(result) = found {
-            return Ok(result);
+        if let Some(info) = found {
+            return Ok(serde_json::to_value(info).unwrap_or_default());
         }
     }
     Ok(json!(null))
@@ -332,24 +310,9 @@ fn get_by_id(params: &Value) -> Result<Value, String> {
     let id = params.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     crate::window_manager::MANAGER.with(|m| {
         let manager = m.borrow();
-        if let Some(entry) = manager.get(id) {
-            let size = entry.window.inner_size();
-            let pos = entry.window.outer_position().unwrap_or(tao::dpi::PhysicalPosition::new(0, 0));
-            Ok(json!({
-                "id": id,
-                "title": entry.window.title(),
-                "width": size.width,
-                "height": size.height,
-                "x": pos.x,
-                "y": pos.y,
-                "is_maximized": entry.window.is_maximized(),
-                "is_minimized": entry.window.is_minimized(),
-                "is_fullscreen": entry.window.fullscreen().is_some(),
-                "is_focused": entry.window.is_focused(),
-                "is_visible": entry.window.is_visible()
-            }))
-        } else {
-            Ok(json!(null))
+        match manager.get(id) {
+            Some(entry) => Ok(serde_json::to_value(entry.get_info(id)).unwrap_or_default()),
+            None => Ok(json!(null)),
         }
     })
 }

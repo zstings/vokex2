@@ -2,6 +2,43 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use tao::window::{Window, WindowId};
 use wry::WebView;
+use serde::Serialize;
+
+/// 窗口信息
+#[derive(Debug, Clone, Serialize)]
+pub struct WindowInfo {
+    pub id: u32,
+    pub title: String,
+    pub width: u32,
+    pub height: u32,
+    pub x: i32,
+    pub y: i32,
+    pub is_maximized: bool,
+    pub is_minimized: bool,
+    pub is_fullscreen: bool,
+    pub is_focused: bool,
+    pub is_visible: bool,
+}
+
+impl WindowEntry {
+    pub fn get_info(&self, id: u32) -> WindowInfo {
+        let size = self.window.inner_size();
+        let pos = self.window.outer_position().unwrap_or(tao::dpi::PhysicalPosition::new(0, 0));
+        WindowInfo {
+            id,
+            title: self.window.title(),
+            width: size.width,
+            height: size.height,
+            x: pos.x,
+            y: pos.y,
+            is_maximized: self.window.is_maximized(),
+            is_minimized: self.window.is_minimized(),
+            is_fullscreen: self.window.fullscreen().is_some(),
+            is_focused: self.window.is_focused(),
+            is_visible: self.window.is_visible(),
+        }
+    }
+}
 
 /// 窗口条目，同时持有 tao Window 和 wry WebView
 pub struct WindowEntry {
