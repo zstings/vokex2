@@ -20,7 +20,7 @@ open = "5.1"
 trash = "5.2"
 minreq = { version = "2", features = ["https"] }
 raw-window-handle = "0.6"
-rfd = { version = "0.15", optional = true, default-features = false, features = ["xdg-portal"] }
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 arboard = { version = "3" }
 muda = "0.17"
 tray-icon = "0.21"

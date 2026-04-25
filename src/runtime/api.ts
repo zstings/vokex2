@@ -390,14 +390,6 @@ export interface ProxyConfig {
   proxyBypassRules?: string;
 }
 
-/**
- * 对话框相关 API
- */
-export const dialog = {
-  // TODO: 实现 dialog API
-};
-
-
 
 // ==============================
 // 菜单 API
@@ -813,4 +805,5 @@ export { shell } from './apis/shell';
 export { process } from './apis/process';
 export { http } from './apis/http';
 export { clipboard } from './apis/clipboard';
+export { dialog } from './apis/dialog';
 

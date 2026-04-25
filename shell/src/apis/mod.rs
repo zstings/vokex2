@@ -6,3 +6,4 @@ pub mod shell;
 pub mod process;
 pub mod http;
 pub mod clipboard;
+pub mod dialog;
