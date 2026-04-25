@@ -1,4 +1,4 @@
-import { app, notification, process, computer, http, browserWindow, BrowserWindow, menu, tray, Tray } from "vokex";
+import { app, notification,  computer, browserWindow, BrowserWindow, menu, tray, Tray } from "vokex";
 
 import { log, clear } from './utils'
 

@@ -5,3 +5,4 @@ pub mod storage;
 pub mod shell;
 pub mod process;
 pub mod http;
+pub mod clipboard;

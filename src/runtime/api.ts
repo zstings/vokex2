@@ -397,12 +397,7 @@ export const dialog = {
   // TODO: 实现 dialog API
 };
 
-/**
- * 剪贴板相关 API
- */
-export const clipboard = {
-  // TODO: 实现 clipboard API
-};
+
 
 // ==============================
 // 菜单 API
@@ -817,4 +812,5 @@ export { fs } from './apis/fs';
 export { shell } from './apis/shell';
 export { process } from './apis/process';
 export { http } from './apis/http';
+export { clipboard } from './apis/clipboard';
 
