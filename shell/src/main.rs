@@ -254,12 +254,7 @@ fn main() {
     }));
 
     // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
-    let icon = {
-        #[cfg(debug_assertions)]
-        { load_image(app_config.icon) }
-        #[cfg(not(debug_assertions))]
-        { resources.get(&app_config.icon).and_then(|data| load_image(data)) }
-    };
+    let icon = load_image(&app_config.icon);
     let window = WindowBuilder::new()
         .with_title(app_config.window.title)
         .with_inner_size(tao::dpi::LogicalSize::new(app_config.window.width, app_config.window.height))
@@ -373,10 +368,13 @@ fn main() {
                 let url = params.get("url").and_then(|v| v.as_str())
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| default_url.clone());
-
+                let icon = params.get("icon")
+                    .and_then(|v| v.as_str())
+                    .and_then(|path| crate::utils::load_image(path));
                 let new_window = WindowBuilder::new()
                     .with_title(&title)
                     .with_inner_size(tao::dpi::LogicalSize::new(width, height))
+                    .with_window_icon(icon)
                     .build(target)
                     .unwrap();
 

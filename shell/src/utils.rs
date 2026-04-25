@@ -21,24 +21,28 @@ pub fn has_flag(name: &str) -> bool {
     args.iter().any(|arg| arg == name)
 }
 
-// 通过图片路径加载图片为icon对象 只支持png格式
-#[cfg(debug_assertions)]
-pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
-    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    let full_path = exe_dir.join(&icon_path);
-    let png_data = std::fs::read(&full_path).ok()?;
-    
-    let decoder = png::Decoder::new(std::io::Cursor::new(&png_data));
+/// 通过资源路径加载图片为 Icon 对象（只支持 PNG 格式）
+/// 开发模式：从文件系统读取，正式模式：从 exe 嵌入资源读取
+pub fn load_image(path: &str) -> Option<tao::window::Icon> {
+    #[cfg(debug_assertions)]
+    let data = {
+        let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+        std::fs::read(exe_dir.join(path)).ok()?
+    };
+    #[cfg(not(debug_assertions))]
+    let data = {
+        let exe_path = std::env::current_exe().ok()?;
+        let resources = crate::Resources::load_from_exe(&exe_path).ok()?;
+        resources.get(path)?.to_vec()
+    };
+
+    let decoder = png::Decoder::new(std::io::Cursor::new(&data));
     let mut reader = decoder.read_info().ok()?;
     let mut buf = vec![0u8; reader.output_buffer_size()];
     let info = reader.next_frame(&mut buf).ok()?;
-    
     let rgba = match info.color_type {
-        png::ColorType::Rgba => {
-            buf[..info.buffer_size()].to_vec()
-        }
+        png::ColorType::Rgba => buf[..info.buffer_size()].to_vec(),
         png::ColorType::Rgb => {
-            // RGB → RGBA，每3字节后面插一个255（不透明）
             let rgb = &buf[..info.buffer_size()];
             let mut rgba = Vec::with_capacity(rgb.len() / 3 * 4);
             for chunk in rgb.chunks(3) {
@@ -51,30 +55,6 @@ pub fn load_image(icon_path: String) -> Option<tao::window::Icon> {
         }
         _ => return None,
     };
-    
-    tao::window::Icon::from_rgba(rgba, info.width, info.height).ok()
-}
-#[cfg(not(debug_assertions))]
-pub fn load_image(png_data: &[u8]) -> Option<tao::window::Icon> {
-    let decoder = png::Decoder::new(std::io::Cursor::new(png_data));
-    let mut reader = decoder.read_info().ok()?;
-    let mut buf = vec![0u8; reader.output_buffer_size()];
-    let info = reader.next_frame(&mut buf).ok()?;
-    
-    let rgba = match info.color_type {
-        png::ColorType::Rgba => buf[..info.buffer_size()].to_vec(),
-        png::ColorType::Rgb => {
-            let rgb = &buf[..info.buffer_size()];
-            let mut rgba = Vec::with_capacity(rgb.len() / 3 * 4);
-            for chunk in rgb.chunks(3) {
-                rgba.extend_from_slice(chunk);
-                rgba.push(255);
-            }
-            rgba
-        }
-        _ => return None,
-    };
-    
     tao::window::Icon::from_rgba(rgba, info.width, info.height).ok()
 }
 

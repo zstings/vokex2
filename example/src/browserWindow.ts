@@ -14,6 +14,7 @@ document.getElementById("btn-win-create")?.addEventListener("click", async () =>
       title: `新窗口 - ${new Date().toLocaleTimeString()}`,
       width: 600,
       height: 400,
+      icon: 'icon/icon.png',
     });
     log(`✅ 新窗口已创建，ID: ${newWin.getId()}`);
     const allWindows = await browserWindow.getAll();

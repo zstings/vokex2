@@ -212,13 +212,7 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
             if icon_path.is_empty() {
                 w.window.set_window_icon(None);
             } else {
-                #[cfg(debug_assertions)]
-                let image = crate::utils::load_image(icon_path.to_string());
-                #[cfg(not(debug_assertions))]
-                let image = {
-                    let data = std::fs::read(icon_path).map_err(|e| format!("Failed to read icon: {}", e))?;
-                    crate::utils::load_image(&data)
-                };
+                let image = crate::utils::load_image(icon_path);
                 w.window.set_window_icon(image);
             }
             Ok(json!(true))
