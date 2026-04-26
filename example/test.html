@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="content"></div>
+    <script type="module">
+        import { browserWindow } from "vokex";
+
+        
+        const currentWindow = browserWindow.getCurrentWindow();
+        // 监听来自其他窗口的消息
+
+        const win = browserWindow.getCurrentWindow();
+
+        content.innerText = location.href;
+
+        win.on('window.message', async (data) => {
+            content.innerText += `\n收到来自窗口 ${data.from} 的消息: ${data.message}`;
+
+            // 回复消息
+            const fromWin = await browserWindow.getWindow(data.from);
+            if (fromWin) {
+                await currentWindow.sendMessage("已收到！", fromWin);
+                content.innerText += `\n已向窗口 ${data.from} 发送回复消息`;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -18,6 +18,7 @@ extern "system" {
     fn SetWindowLongW(hwnd: isize, index: i32, value: i32) -> i32;
     fn SetLayeredWindowAttributes(hwnd: isize, crkey: u32, balpha: u8, flags: u32) -> i32;
     fn FlashWindowEx(info: *const FLASHWINFO) -> i32;
+    fn ShowCursor(show: bool) -> i32;
 }
 
 
@@ -252,6 +253,173 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
             }
             Ok(json!(true))
         }),
+
+        // 缩放因子
+        "browserWindow.scaleFactor" => with_window(params, |w| Ok(json!(w.window.scale_factor()))),
+        // 客户区位置
+        "browserWindow.innerPosition" => with_window(params, |w| {
+            let pos = w.window.inner_position().map_err(|e| format!("{}", e))?;
+            Ok(json!({ "x": pos.x, "y": pos.y }))
+        }),
+        // 外部大小（含边框）
+        "browserWindow.outerSize" => with_window(params, |w| {
+            let size = w.window.outer_size();
+            Ok(json!({ "width": size.width, "height": size.height }))
+        }),
+        // 是否可最小化
+        "browserWindow.isMinimizable" => with_window(params, |w| Ok(json!(w.window.is_minimizable()))),
+        // 设置是否可最小化
+        "browserWindow.setMinimizable" => with_window(params, |w| {
+            let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_minimizable(flag);
+            Ok(json!(true))
+        }),
+        // 是否可最大化
+        "browserWindow.isMaximizable" => with_window(params, |w| Ok(json!(w.window.is_maximizable()))),
+        // 设置是否可最大化
+        "browserWindow.setMaximizable" => with_window(params, |w| {
+            let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_maximizable(flag);
+            Ok(json!(true))
+        }),
+        // 是否可关闭
+        "browserWindow.isClosable" => with_window(params, |w| Ok(json!(w.window.is_closable()))),
+        // 设置是否可关闭
+        "browserWindow.setClosable" => with_window(params, |w| {
+            let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_closable(flag);
+            Ok(json!(true))
+        }),
+        // 是否有窗口装饰（边框）
+        "browserWindow.isDecorated" => with_window(params, |w| Ok(json!(w.window.is_decorated()))),
+        // 设置窗口装饰
+        "browserWindow.setDecorated" => with_window(params, |w| {
+            let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_decorations(flag);
+            Ok(json!(true))
+        }),
+        // 设置置底
+        "browserWindow.setAlwaysOnBottom" => with_window(params, |w| {
+            let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(false);
+            w.window.set_always_on_bottom(flag);
+            Ok(json!(true))
+        }),
+        // 请求用户关注
+        "browserWindow.requestUserAttention" => with_window(params, |w| {
+            let level = params.get("level").and_then(|v| v.as_str()).unwrap_or("normal");
+            let request_type = match level {
+                "critical" => Some(tao::window::UserAttentionType::Critical),
+                "informational" => Some(tao::window::UserAttentionType::Informational),
+                _ => None,
+            };
+            w.window.request_user_attention(request_type);
+            Ok(json!(true))
+        }),
+        // 内容保护（防截图）
+        "browserWindow.setContentProtection" => with_window(params, |w| {
+            let enabled = params.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_content_protection(enabled);
+            Ok(json!(true))
+        }),
+        // 所有工作区可见
+        "browserWindow.setVisibleOnAllWorkspaces" => with_window(params, |w| {
+            let visible = params.get("visible").and_then(|v| v.as_bool()).unwrap_or(true);
+            w.window.set_visible_on_all_workspaces(visible);
+            Ok(json!(true))
+        }),
+        // 设置光标图标
+        "browserWindow.setCursorIcon" => with_window(params, |w| {
+            let icon_name = params.get("icon").and_then(|v| v.as_str()).unwrap_or("default");
+            let cursor_icon = match icon_name {
+                "default" => tao::window::CursorIcon::Default,
+                "crosshair" => tao::window::CursorIcon::Crosshair,
+                "hand" => tao::window::CursorIcon::Hand,
+                "arrow" => tao::window::CursorIcon::Arrow,
+                "move" => tao::window::CursorIcon::Move,
+                "text" => tao::window::CursorIcon::Text,
+                "wait" => tao::window::CursorIcon::Wait,
+                "help" => tao::window::CursorIcon::Help,
+                "progress" => tao::window::CursorIcon::Progress,
+                "notallowed" => tao::window::CursorIcon::NotAllowed,
+                "contextmenu" => tao::window::CursorIcon::ContextMenu,
+                "cell" => tao::window::CursorIcon::Cell,
+                "verticaltext" => tao::window::CursorIcon::VerticalText,
+                "alias" => tao::window::CursorIcon::Alias,
+                "copy" => tao::window::CursorIcon::Copy,
+                "no-drop" => tao::window::CursorIcon::NoDrop,
+                "grab" => tao::window::CursorIcon::Grab,
+                "grabbing" => tao::window::CursorIcon::Grabbing,
+                "all-scroll" => tao::window::CursorIcon::AllScroll,
+                "zoom-in" => tao::window::CursorIcon::ZoomIn,
+                "zoom-out" => tao::window::CursorIcon::ZoomOut,
+                "e-resize" => tao::window::CursorIcon::EResize,
+                "n-resize" => tao::window::CursorIcon::NResize,
+                "ne-resize" => tao::window::CursorIcon::NeResize,
+                "nw-resize" => tao::window::CursorIcon::NwResize,
+                "s-resize" => tao::window::CursorIcon::SResize,
+                "se-resize" => tao::window::CursorIcon::SeResize,
+                "sw-resize" => tao::window::CursorIcon::SwResize,
+                "w-resize" => tao::window::CursorIcon::WResize,
+                "ew-resize" => tao::window::CursorIcon::EwResize,
+                "ns-resize" => tao::window::CursorIcon::NsResize,
+                "nesw-resize" => tao::window::CursorIcon::NeswResize,
+                "nwse-resize" => tao::window::CursorIcon::NwseResize,
+                "col-resize" => tao::window::CursorIcon::ColResize,
+                "row-resize" => tao::window::CursorIcon::RowResize,
+                _ => tao::window::CursorIcon::Default,
+            };
+            w.window.set_cursor_icon(cursor_icon);
+            Ok(json!(true))
+        }),
+        // 设置光标位置
+        "browserWindow.setCursorPosition" => with_window(params, |w| {
+            let x = params.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let y = params.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            w.window.set_cursor_position(tao::dpi::PhysicalPosition::new(x, y)).map_err(|e| format!("{}", e))?;
+            Ok(json!(true))
+        }),
+        // 设置光标抓取
+        "browserWindow.setCursorGrab" => with_window(params, |w| {
+            let grab = params.get("grab").and_then(|v| v.as_bool()).unwrap_or(false);
+            w.window.set_cursor_grab(grab).map_err(|e| format!("{}", e))?;
+            Ok(json!(true))
+        }),
+        // 设置光标可见（绕过 tao 的 IN_WINDOW 门控，直接调用 Win32 ShowCursor）
+        "browserWindow.setCursorVisible" => with_window(params, |w| {
+            let visible = params.get("visible").and_then(|v| v.as_bool()).unwrap_or(true);
+            #[cfg(target_os = "windows")]
+            {
+                use raw_window_handle::HasWindowHandle;
+                if let Ok(handle) = w.window.window_handle() {
+                    let _ = handle; // 仅确保窗口有效
+                    unsafe {
+                        // ShowCursor 是计数器机制，循环调用直到达到目标状态
+                        if visible {
+                            while ShowCursor(true) < 0 {}
+                        } else {
+                            while ShowCursor(false) >= 0 {}
+                        }
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                w.window.set_cursor_visible(visible);
+            }
+            Ok(json!(true))
+        }),
+        "browserWindow.sendMessage" => {
+            let target_id = params.get("targetId").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let from_id = params.get("fromId").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let message = params.get("message").cloned().unwrap_or(json!(""));
+            let payload = json!({ "from": from_id, "message": message });
+            let script = format!(
+                "if(window.__VOKEX__&&window.__VOKEX__.__emit__){{window.__VOKEX__.__emit__('window.message',{});}}",
+                serde_json::to_string(&payload).unwrap()
+            );
+            crate::window_manager::eval(target_id, &script);
+            Ok(json!(true))
+        },
         _ => Err(format!("Unknown method: {}", method)),
     }
 }

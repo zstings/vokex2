@@ -365,9 +365,17 @@ fn main() {
                 let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("Vokex").to_string();
                 let width = params.get("width").and_then(|v| v.as_f64()).unwrap_or(800.0);
                 let height = params.get("height").and_then(|v| v.as_f64()).unwrap_or(600.0);
-                let url = params.get("url").and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| default_url.clone());
+                let url = {
+                    let raw_url = params.get("url").and_then(|v| v.as_str()).unwrap_or("");
+                    if raw_url.is_empty() {
+                        default_url.clone()
+                    } else if raw_url.starts_with("http://") || raw_url.starts_with("https://") || raw_url.starts_with("vokex://") {
+                        raw_url.to_string()
+                    } else {
+                        let base = default_url.trim_end_matches('/');
+                        format!("{}/{}", base, raw_url.trim_start_matches('/'))
+                    }
+                };
                 let icon = params.get("icon")
                     .and_then(|v| v.as_str())
                     .and_then(|path| crate::utils::load_image(path));

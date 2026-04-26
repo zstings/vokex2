@@ -18,4 +18,12 @@ export default defineConfig({
       verbose: true,
     }),
   ],
+  build: {
+    rollupOptions: {
+      input: {
+        index: 'index.html',
+        test: 'test.html',  // 加入构建
+      }
+    }
+  }
 });

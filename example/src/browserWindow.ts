@@ -1,4 +1,4 @@
-import { browserWindow } from "vokex";
+import { browserWindow, events } from "vokex";
 
 import { log, clear } from './utils'
 
@@ -12,10 +12,41 @@ document.getElementById("btn-win-create")?.addEventListener("click", async () =>
   try {
     const newWin = await browserWindow.create({
       title: `新窗口 - ${new Date().toLocaleTimeString()}`,
-      width: 600,
-      height: 400,
+      width: 1200,
+      height: 700,
       icon: 'icon/icon.png',
     });
+    log(`✅ 新窗口已创建，ID: ${newWin.getId()}`);
+    const allWindows = await browserWindow.getAll();
+    log(`当前共有 ${allWindows.length} 个窗口`);
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-create-on")?.addEventListener("click", async () => {
+  clear();
+  log("=== browserWindow.create() ===");
+  try {
+    const newWin = await browserWindow.create({
+      title: `新窗口 - ${new Date().toLocaleTimeString()}`,
+      width: 1200,
+      height: 700,
+      icon: 'icon/icon.png',
+      url: 'test.html',
+    });
+    // 等新窗口加载后，向它发送消息
+    setTimeout(async () => {
+      mainWindow = await browserWindow.getCurrentWindow();
+      await mainWindow.sendMessage("你好，我是主窗口！", newWin);
+      log(`✅ 已向窗口 ${newWin.getId()} 发送消息`);
+      log("提示: 查看新窗口的控制台输出");
+    }, 1000);
+    events.on('window.message', c);
+    function c(data:any) {
+      log(`来自窗口 ${data.from} 的消息: ${data.message}`);
+      events.off('window.message', c);
+    }
     log(`✅ 新窗口已创建，ID: ${newWin.getId()}`);
     const allWindows = await browserWindow.getAll();
     log(`当前共有 ${allWindows.length} 个窗口`);
@@ -501,5 +532,374 @@ document.getElementById("btn-win-flash-taskbar")?.addEventListener("click", asyn
     }
   } catch (error: any) {
     log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-scale-factor")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.scaleFactor() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const factor = await mainWindow.scaleFactor();
+      log(`✅ 缩放因子: ${factor}`);
+      log(`提示: 1.0 = 100%, 1.5 = 150%, 2.0 = 200% (HiDPI)`);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-inner-position")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.getInnerPosition() / win.getOuterSize() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const innerPos = await mainWindow.getInnerPosition();
+      const outerSize = await mainWindow.getOuterSize();
+      log(`客户区位置: (${innerPos.x}, ${innerPos.y})`);
+      log(`外部大小（含边框）: ${outerSize.width} x ${outerSize.height}`);
+      const size = await mainWindow.getSize();
+      log(`内部大小（客户区）: ${size[0]} x ${size[1]}`);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-outer-size")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.getOuterSize() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const outerSize = await mainWindow.getOuterSize();
+      log(`✅ 外部大小（含边框）: ${outerSize.width} x ${outerSize.height}`);
+      const size = await mainWindow.getSize();
+      log(`内部大小（客户区）: ${size[0]} x ${size[1]}`);
+      log(`边框占用: ${outerSize.width - size[0]} x ${outerSize.height - size[1]}`);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-minimizable")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.isMinimizable() / win.setMinimizable() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const canMinimize = await mainWindow.isMinimizable();
+      log(`当前可最小化: ${canMinimize}`);
+      await mainWindow.setMinimizable(!canMinimize);
+      log(`✅ 已设置为: ${!canMinimize}`);
+      log("提示: 禁用后最小化按钮将变灰");
+      log("提示: 5秒后恢复");
+      setTimeout(async () => {
+        await mainWindow?.setMinimizable(true);
+        log("✅ 已恢复可最小化");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-maximizable")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.isMaximizable() / win.setMaximizable() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const canMaximize = await mainWindow.isMaximizable();
+      log(`当前可最大化: ${canMaximize}`);
+      await mainWindow.setMaximizable(!canMaximize);
+      log(`✅ 已设置为: ${!canMaximize}`);
+      log("提示: 禁用后最大化按钮将变灰");
+      log("提示: 5秒后恢复");
+      setTimeout(async () => {
+        await mainWindow?.setMaximizable(true);
+        log("✅ 已恢复可最大化");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-closable")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.isClosable() / win.setClosable() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const canClose = await mainWindow.isClosable();
+      log(`当前可关闭: ${canClose}`);
+      await mainWindow.setClosable(!canClose);
+      log(`✅ 已设置为: ${!canClose}`);
+      log("提示: 禁用后关闭按钮将变灰");
+      log("提示: 5秒后恢复");
+      setTimeout(async () => {
+        await mainWindow?.setClosable(true);
+        log("✅ 已恢复可关闭");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-decorated")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.isDecorated() / win.setDecorated() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const isDecorated = await mainWindow.isDecorated();
+      log(`当前有窗口装饰: ${isDecorated}`);
+      await mainWindow.setDecorated(!isDecorated);
+      log(`✅ 窗口装饰已${!isDecorated ? "移除" : "恢复"}`);
+      log("提示: 5秒后恢复");
+      setTimeout(async () => {
+        await mainWindow?.setDecorated(true);
+        log("✅ 窗口装饰已恢复");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-always-on-bottom")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setAlwaysOnBottom() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      await mainWindow.setAlwaysOnBottom(true);
+      log("✅ 窗口已设置为置底");
+      log("提示: 3秒后取消置底");
+      setTimeout(async () => {
+        await mainWindow?.setAlwaysOnBottom(false);
+        log("✅ 置底已取消");
+      }, 3000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-attention")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.requestUserAttention() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      log("先让窗口失焦（最小化），2秒后请求用户关注...");
+      await mainWindow.minimize();
+      setTimeout(async () => {
+        await mainWindow?.requestUserAttention("critical");
+        log("✅ 已请求用户关注 (critical)");
+        log("提示: 任务栏图标会闪烁提示，请观察任务栏");
+        // 恢复窗口
+        setTimeout(async () => {
+          await mainWindow?.restore();
+          log("✅ 窗口已恢复");
+        }, 3000);
+      }, 2000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-content-protection")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setContentProtection() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      await mainWindow.setContentProtection(true);
+      log("✅ 内容保护已开启");
+      log("提示: 窗口内容将无法被截图");
+      log("提示: 5秒后关闭");
+      setTimeout(async () => {
+        await mainWindow?.setContentProtection(false);
+        log("✅ 内容保护已关闭");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+    log("提示: setContentProtection 在 Linux 上可能不受支持");
+  }
+});
+
+document.getElementById("btn-win-cursor-icon")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setCursorIcon() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const icons = ["default", "crosshair", "hand", "move", "text", "wait", "grab", "notallowed", "zoom-in", "progress"];
+      for (const icon of icons) {
+        await mainWindow.setCursorIcon(icon);
+        log(`光标图标: ${icon}`);
+        await new Promise(r => setTimeout(r, 500));
+      }
+      await mainWindow.setCursorIcon("default");
+      log("✅ 光标图标已恢复默认");
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-cursor-visible")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setCursorVisible() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      await mainWindow.setCursorVisible(false);
+      log("✅ 光标已隐藏");
+      log("提示: 在窗口内移动鼠标，光标将不可见");
+      log("提示: 8秒后恢复（留足时间体验）");
+      setTimeout(async () => {
+        await mainWindow?.setCursorVisible(true);
+        log("✅ 光标已恢复可见");
+      }, 8000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-cursor-position")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setCursorPosition() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      const pos = await mainWindow.getPosition();
+      const size = await mainWindow.getSize();
+      // 将光标移动到窗口中心
+      const centerX = pos[0] + size[0] / 2;
+      const centerY = pos[1] + size[1] / 2;
+      await mainWindow.setCursorPosition(centerX, centerY);
+      log(`✅ 光标已移动到窗口中心: (${centerX}, ${centerY})`);
+      log("提示: 2秒后移动到窗口左上角");
+      setTimeout(async () => {
+        const pos2 = await mainWindow?.getPosition();
+        if (pos2) {
+          await mainWindow?.setCursorPosition(pos2[0] + 50, pos2[1] + 50);
+          log(`✅ 光标已移动到窗口左上角附近: (${pos2[0] + 50}, ${pos2[1] + 50})`);
+        }
+      }, 2000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-cursor-grab")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setCursorGrab() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      await mainWindow.setCursorGrab(true);
+      log("✅ 光标已锁定（抓取模式）");
+      log("提示: 光标将被限制在窗口内，无法移出窗口");
+      log("提示: 5秒后释放");
+      setTimeout(async () => {
+        await mainWindow?.setCursorGrab(false);
+        log("✅ 光标已释放");
+      }, 5000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+  }
+});
+
+document.getElementById("btn-win-all-workspaces")?.addEventListener("click", async () => {
+  clear();
+  log("=== win.setVisibleOnAllWorkspaces() ===");
+  try {
+    if (!mainWindow) {
+      mainWindow = await browserWindow.getCurrentWindow();
+    }
+    if (mainWindow) {
+      await mainWindow.setVisibleOnAllWorkspaces(true);
+      log("✅ 窗口已设置为在所有工作区可见");
+      log("提示: 切换到其他虚拟桌面/工作区时窗口仍然可见");
+      log("提示: 100秒后恢复");
+      setTimeout(async () => {
+        await mainWindow?.setVisibleOnAllWorkspaces(false);
+        log("✅ 已恢复仅当前工作区可见");
+      }, 100000);
+    } else {
+      log("⚠️ 未找到主窗口");
+    }
+  } catch (error: any) {
+    log(`❌ 错误: ${error.message}`);
+    log("提示: setVisibleOnAllWorkspaces 在 Windows 上可能不受支持");
   }
 });
