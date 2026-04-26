@@ -16,7 +16,7 @@ mod ipc;
 mod window_manager;
 mod apis;
 use utils::{load_image, get_webview_data_dir};
-
+use wry::WebViewBuilderExtWindows;
 use serde_json::json;
 use raw_window_handle::HasWindowHandle;
 use std::io::{self, Read, Seek, SeekFrom};
@@ -204,6 +204,9 @@ fn build_webview(
             },
         )
     };
+
+    #[cfg(target_os = "windows")]
+    let builder = builder.with_https_scheme(true);
 
     builder.build(window).map_err(|e| format!("Failed to build webview: {}", e))
 }
