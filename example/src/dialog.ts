@@ -64,3 +64,18 @@ document.querySelector('#btn-dialog-save')?.addEventListener('click', async () =
         log(`❌ 错误: ${error.message}`);
     }
 });
+
+document.querySelector('#btn-dialog-dir')?.addEventListener('click', async () => {
+    clear();
+    log("=== 选择文件夹 ===");
+    try {
+        const result = await dialog.showOpenDialog({
+            title: '选择文件夹',
+            defaultPath: 'C:\\',
+            directory: true,
+        });
+        log(result ? `选择: ${result}` : '已取消');
+    } catch (error: any) {
+        log(`❌ 错误: ${error.message}`);
+    }
+});

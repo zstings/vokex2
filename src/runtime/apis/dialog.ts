@@ -46,6 +46,8 @@ export interface OpenDialogOptions {
   defaultName?: string;
   /** 是否多选 */
   multiple?: boolean;
+  /** 是否允许选择目录 */
+  directory?: boolean;
   /** 文件过滤器 */
   filters?: FileFilter[];
 }

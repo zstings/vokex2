@@ -71,9 +71,10 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
             }
 
             "dialog.showOpenDialog" => {
-                let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("打开文件");
+                let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("打开");
                 let filters = params.get("filters").and_then(|v| v.as_array());
                 let multiple = params.get("multiple").and_then(|v| v.as_bool()).unwrap_or(false);
+                let directory = params.get("directory").and_then(|v| v.as_bool()).unwrap_or(false);
 
                 let mut builder = rfd::FileDialog::new().set_title(title);
 
@@ -84,33 +85,48 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
                 if let Some(default_path) = params.get("defaultPath").and_then(|v| v.as_str()) {
                     builder = builder.set_directory(default_path);
                 }
-                if let Some(default_name) = params.get("defaultName").and_then(|v| v.as_str()) {
-                    builder = builder.set_file_name(default_name);
-                }
 
-                if let Some(filter_arr) = filters {
-                    for filter in filter_arr {
-                        if let Some(obj) = filter.as_object() {
-                            let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                            let extensions: Vec<String> = obj.get("extensions")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                                .unwrap_or_default();
-                            if !extensions.is_empty() {
-                                builder = builder.add_filter(name, &extensions);
+                if directory {
+                    // 选择文件夹
+                    if multiple {
+                        let dirs = builder.pick_folders();
+                        let result: Vec<String> = dirs.unwrap_or_default()
+                            .iter().map(|p| p.to_string_lossy().to_string()).collect();
+                        Ok(json!(result))
+                    } else {
+                        let dir = builder.pick_folder();
+                        Ok(json!(dir.map(|p| p.to_string_lossy().to_string())))
+                    }
+                } else {
+                    // 选择文件
+                    if let Some(default_name) = params.get("defaultName").and_then(|v| v.as_str()) {
+                        builder = builder.set_file_name(default_name);
+                    }
+
+                    if let Some(filter_arr) = filters {
+                        for filter in filter_arr {
+                            if let Some(obj) = filter.as_object() {
+                                let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                                let extensions: Vec<String> = obj.get("extensions")
+                                    .and_then(|v| v.as_array())
+                                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                    .unwrap_or_default();
+                                if !extensions.is_empty() {
+                                    builder = builder.add_filter(name, &extensions);
+                                }
                             }
                         }
                     }
-                }
 
-                if multiple {
-                    let paths = builder.pick_files();
-                    let result: Vec<String> = paths.unwrap_or_default()
-                        .iter().map(|p| p.to_string_lossy().to_string()).collect();
-                    Ok(json!(result))
-                } else {
-                    let path = builder.pick_file();
-                    Ok(json!(path.map(|p| p.to_string_lossy().to_string())))
+                    if multiple {
+                        let paths = builder.pick_files();
+                        let result: Vec<String> = paths.unwrap_or_default()
+                            .iter().map(|p| p.to_string_lossy().to_string()).collect();
+                        Ok(json!(result))
+                    } else {
+                        let path = builder.pick_file();
+                        Ok(json!(path.map(|p| p.to_string_lossy().to_string())))
+                    }
                 }
             }
 
