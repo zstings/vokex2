@@ -88,19 +88,25 @@ export interface DialogAPI {
   showSaveDialog: (options?: SaveDialogOptions) => Promise<string | null>;
 }
 
+/** 自动注入当前窗口 ID */
+function withWindowId(options: Record<string, any>): Record<string, any> {
+  const windowId = (window as any).__VOKEX__?.__windowId__;
+  return { ...options, windowId };
+}
+
 /**
  * 原生对话框 API
  */
 export const dialog: DialogAPI = {
   showMessageBox: (options: MessageBoxOptions): Promise<MessageBoxResult> =>
-    vokexCall('dialog.showMessageBox', options),
+    vokexCall('dialog.showMessageBox', withWindowId(options)),
 
   showErrorBox: (options: ErrorBoxOptions): Promise<void> =>
-    vokexCall('dialog.showErrorBox', options),
+    vokexCall('dialog.showErrorBox', withWindowId(options)),
 
   showOpenDialog: (options?: OpenDialogOptions): Promise<string | string[] | null> =>
-    vokexCall('dialog.showOpenDialog', options || {}),
+    vokexCall('dialog.showOpenDialog', withWindowId(options || {})),
 
   showSaveDialog: (options?: SaveDialogOptions): Promise<string | null> =>
-    vokexCall('dialog.showSaveDialog', options || {}),
+    vokexCall('dialog.showSaveDialog', withWindowId(options || {})),
 };
