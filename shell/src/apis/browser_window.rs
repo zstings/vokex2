@@ -39,6 +39,9 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         "browserWindow.isMaximized" => with_window(params, |w| Ok(json!(w.window.is_maximized()))),
         "browserWindow.isMinimized" => with_window(params, |w| Ok(json!(w.window.is_minimized()))),
         "browserWindow.isFullScreen" => with_window(params, |w| Ok(json!(w.window.fullscreen().is_some()))),
+        "browserWindow.isFocused" => with_window(params, |w| Ok(json!(w.window.is_focused()))),
+        "browserWindow.isVisible" => with_window(params, |w| Ok(json!(w.window.is_visible()))),
+        "browserWindow.isResizable" => with_window(params, |w| Ok(json!(w.window.is_resizable()))),
         "browserWindow.setFullScreen" => with_window(params, |w| {
             let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
             if flag {

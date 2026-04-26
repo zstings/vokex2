@@ -171,6 +171,21 @@ export class BrowserWindow {
         return vokexCall('browserWindow.isFullScreen', { id: this.id });
     }
 
+    /** 是否聚焦 [通用] */
+    isFocused(): Promise<boolean> {
+        return vokexCall('browserWindow.isFocused', { id: this.id });
+    }
+
+    /** 是否可见 [通用] */
+    isVisible(): Promise<boolean> {
+        return vokexCall('browserWindow.isVisible', { id: this.id });
+    }
+
+    /** 是否可调整大小 [通用] */
+    isResizable(): Promise<boolean> {
+        return vokexCall('browserWindow.isResizable', { id: this.id });
+    }
+
     /** 设置全屏状态 [通用] */
     setFullScreen(flag: boolean): Promise<void> {
         return vokexCall('browserWindow.setFullScreen', { id: this.id, flag });
@@ -192,7 +207,7 @@ export class BrowserWindow {
     }
 
     /** 获取窗口大小 [通用] */
-    async getSize(): Promise<[number, number]> {
+    getSize(): Promise<[number, number]> {
         return vokexCall('browserWindow.getSize', { id: this.id });
     }
 
@@ -222,7 +237,7 @@ export class BrowserWindow {
     }
 
     /** 获取窗口位置 [通用] */
-    async getPosition(): Promise<[number, number]> {
+    getPosition(): Promise<[number, number]> {
         return vokexCall('browserWindow.getPosition', { id: this.id });
     }
 
@@ -379,10 +394,10 @@ export const browserWindow = {
      * 获取当前窗口（JS 代码所在的窗口）[通用]
      * @returns BrowserWindow 实例或 null
      */
-    async getCurrentWindow(): Promise<BrowserWindow | null> {
+    getCurrentWindow(): BrowserWindow | null {
         const windowId = (window as any).__VOKEX__?.__windowId__;
         if (windowId) {
-        return new BrowserWindow(windowId);
+            return new BrowserWindow(windowId);
         }
         return null;
     },
