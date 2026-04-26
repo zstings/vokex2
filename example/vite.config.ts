@@ -16,6 +16,7 @@ export default defineConfig({
         center: true,
       },
       verbose: true,
+      devtools: true,
     }),
   ],
   build: {

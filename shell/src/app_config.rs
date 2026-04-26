@@ -11,6 +11,7 @@ pub struct AppConfigSx {
     pub icon: String,
     pub window: AppConfigWindowSx,
     pub dev_url: Option<String>,
+    pub devtools: Option<bool>,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]

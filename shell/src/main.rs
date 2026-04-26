@@ -172,9 +172,10 @@ fn build_webview(
     web_context: &mut wry::WebContext,
     #[cfg(not(debug_assertions))] resources: &std::sync::Arc<Resources>,
 ) -> Result<wry::WebView, String> {
+    let config = app_config::get_config();
     let mut builder = wry::WebViewBuilder::new_with_web_context(web_context)
         .with_url(url)
-        .with_devtools(true)
+        .with_devtools(config.devtools.unwrap_or(false))
         .with_ipc_handler(move |message| {
             ipc::handle_message(window_id, message);
         })

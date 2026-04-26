@@ -67,6 +67,8 @@ export interface VokexPluginOptions {
   skipInDev?: boolean;
   /** 是否显示详细日志 */
   verbose?: boolean;
+  /** 是否开启调试 */
+  devtools?: boolean;
 }
 
 /** 获取预编译壳路径 */
