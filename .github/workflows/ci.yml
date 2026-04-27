@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false  # 一个平台失败不影响其他平台
+      matrix:
+        include:
+          - os: windows-latest
+            target: win32-x64
+            ext: .exe
+          - os: macos-latest
+            target: darwin-x64
+            ext: ""
+          - os: ubuntu-latest
+            target: linux-x64
+            ext: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shell
+
+      - name: Build shell (release)
+        run: cargo build --release
+        working-directory: shell
+
+      - name: Run tests
+        run: cargo test
+        working-directory: shell
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          cp shell/target/release/vokex-shell${{ matrix.ext }} \
+             vokex-${{ matrix.target }}${{ matrix.ext }}
+        # Windows 上 cargo 输出 vokex-shell.exe
+
+      - name: Upload prebuilt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vokex-${{ matrix.target }}
+          path: vokex-${{ matrix.target }}${{ matrix.ext }}
+
+  # 所有平台构建成功后，合并到一个 artifact
+  collect:
+    name: Collect all platforms
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: vokex-*
+          merge-multiple: true
+          path: prebuilt/
+
+      - name: List collected binaries
+        run: ls -lh prebuilt/
+
+      - name: Upload combined release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuilt-all-platforms
+          path: prebuilt/
