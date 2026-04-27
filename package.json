@@ -24,8 +24,9 @@
   },
   "files": [
     "dist/",
-    "prebuilt/*.exe",
-    "!prebuilt/*-dev.exe",
+    "prebuilt/win32-x64.exe",
+    "prebuilt/darwin-x64",
+    "prebuilt/linux-x64",
     "README.md"
   ],
   "scripts": {

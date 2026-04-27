@@ -83,7 +83,8 @@ export interface VokexPluginOptions {
 
 /** 获取预编译壳路径 */
 function getPrebuiltShellPath(): string {
-  const fileName = `${process.platform}-${process.arch}.exe`;
+  const ext = process.platform === "win32" ? ".exe" : "";
+  const fileName = `${process.platform}-${process.arch}${ext}`;
   const currentDir = getCurrentDir();
   const path = resolve(currentDir, `../../prebuilt/${fileName}`);
   if (existsSync(path)) return path;
