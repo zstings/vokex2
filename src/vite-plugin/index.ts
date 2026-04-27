@@ -37,14 +37,14 @@ export interface VokexPluginOptions {
   /** 应用名称 */
   name: string;
   /** 应用标识符，用于存储用户数据目录 (e.g. com.example.myapp) */
-  identifier?: string;
+  identifier: string;
   /** 应用图标路径 */
-  icon?: string;
+  icon: string;
   /** 窗口配置 */
-  window?: {
-    title?: string;
-    width?: number;
-    height?: number;
+  window: {
+    title: string;
+    width: number;
+    height: number;
     minWidth?: number;
     minHeight?: number;
     resizable?: boolean;
@@ -58,7 +58,7 @@ export interface VokexPluginOptions {
     icon?: string;
   };
   /** 应用版本号 */
-  version?: string;
+  version: string;
   /** 输出路径（完整路径，默认为 release/应用名.exe） */
   outputDir?: string;
   /** 自定义壳二进制路径（默认使用内置预编译壳） */
