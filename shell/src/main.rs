@@ -28,7 +28,7 @@ use flate2::read::ZlibDecoder;
 // 从 tao 库的 event 模块引入 Event（所有事件的枚举）和 WindowEvent（窗口事件的枚举）
 use tao::event::{Event, WindowEvent};
 // 从 tao 的 event_loop 模块引入：
-// - ControlFlow：控制事件循环是否继续运行（Wait=继续等待，Exit=退出）
+// - ControlFlow：控制事件循环是否继续运行（Wait=继续，Exit=退出）
 // - EventLoop：事件循环本身，每个 GUI 程序有且只有一个
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::WindowBuilder;
@@ -170,7 +170,7 @@ fn build_webview(
     window_id: u32,
     url: &str,
     web_context: &mut wry::WebContext,
-    #[cfg(not(debug_assertions))] resources: &std::sync::Arc<Resources>,
+    resources: &Option<std::sync::Arc<Resources>>,
 ) -> Result<wry::WebView, String> {
     let config = app_config::get_config();
     let mut builder = wry::WebViewBuilder::new_with_web_context(web_context)
@@ -181,30 +181,31 @@ fn build_webview(
         })
         .with_initialization_script(ipc::get_init_script(window_id));
 
-    #[cfg(not(debug_assertions))]
-    let builder = {
-        let resources = resources.clone();
-        builder.with_custom_protocol(
-            "vokex".to_string(),
-            move |_webview_id, request| {
-                let uri = request.uri();
-                let path = uri.path().trim_start_matches('/');
-                let path = if path.is_empty() { "index.html" } else { path };
-                if let Some(content) = resources.get(path) {
-                    let mime = mime_guess::from_path(path).first_or_text_plain().to_string();
-                    wry::http::Response::builder()
-                        .header("Content-Type", mime)
-                        .body(content.to_vec().into())
-                        .unwrap()
-                } else {
-                    wry::http::Response::builder()
-                        .status(404)
-                        .body("Not Found".as_bytes().to_vec().into())
-                        .unwrap()
-                }
-            },
-        )
-    };
+    if !config.is_dev {
+        if let Some(resources) = resources {
+            let resources = resources.clone();
+            builder = builder.with_custom_protocol(
+                "vokex".to_string(),
+                move |_webview_id, request| {
+                    let uri = request.uri();
+                    let path = uri.path().trim_start_matches('/');
+                    let path = if path.is_empty() { "index.html" } else { path };
+                    if let Some(content) = resources.get(path) {
+                        let mime = mime_guess::from_path(path).first_or_text_plain().to_string();
+                        wry::http::Response::builder()
+                            .header("Content-Type", mime)
+                            .body(content.to_vec().into())
+                            .unwrap()
+                    } else {
+                        wry::http::Response::builder()
+                            .status(404)
+                            .body("Not Found".as_bytes().to_vec().into())
+                            .unwrap()
+                    }
+                },
+            );
+        }
+    }
 
     #[cfg(target_os = "windows")]
     let builder = builder.with_https_scheme(true);
@@ -257,16 +258,15 @@ fn main() {
 
     println!("{:#?}", app_config);
 
-    // release 模式：提前加载 Resources（图标和 custom protocol 都需要）
-    #[cfg(not(debug_assertions))]
-    let resources = {
+    // 提前加载 Resources（图标和 custom protocol 都需要）
+    let resources = if !app_config.is_dev {
         let exe_path = std::env::current_exe().expect("Failed to get exe path");
         let res = Resources::load_from_exe(&exe_path)
             .expect("Failed to load resources from exe");
-        std::sync::Arc::new(res)
+        Some(std::sync::Arc::new(res))
+    } else {
+        None
     };
-
-    
 
     // ============================================================
     // 第 1 步：创建事件循环
@@ -297,21 +297,17 @@ fn main() {
     let data_dir = get_webview_data_dir(&app_config.identifier);
     let web_context = std::sync::Arc::new(Mutex::new(wry::WebContext::new(Some(data_dir))));
     // 默认 URL：debug 用开发地址，release 用 vokex://index.html
-    let default_url = {
-        #[cfg(debug_assertions)]
-        { app_config.dev_url.clone().unwrap_or_else(|| "http://localhost:5173".to_string()) }
-        #[cfg(not(debug_assertions))]
-        { "vokex://index.html".to_string() }
+    let default_url = if app_config.is_dev { 
+        app_config.dev_url.clone().unwrap_or_else(|| "http://localhost:3000".to_string()) 
+    } else { 
+        "vokex://index.html".to_string() 
     };
     // 先分配 window_id，这样闭包和 init_script 都能用
     let window_id = window_manager::next_id();
     // 构建主窗口 WebView
     {
         let mut ctx = web_context.lock().unwrap();
-        #[cfg(not(debug_assertions))]
         let webview = build_webview(&window, window_id, &default_url, &mut ctx, &resources).unwrap();
-        #[cfg(debug_assertions)]
-        let webview = build_webview(&window, window_id, &default_url, &mut ctx).unwrap();
         window_manager::register_with_id(window_id, window, webview);
     }
 
@@ -421,10 +417,7 @@ fn main() {
                 let new_window_id = window_manager::next_id();
                 let new_webview = {
                     let mut ctx = web_context.lock().unwrap();
-                    #[cfg(not(debug_assertions))]
                     let wv = build_webview(&new_window, new_window_id, &url, &mut ctx, &resources).unwrap();
-                    #[cfg(debug_assertions)]
-                    let wv = build_webview(&new_window, new_window_id, &url, &mut ctx).unwrap();
                     wv
                 };
 
