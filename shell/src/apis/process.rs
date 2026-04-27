@@ -108,9 +108,14 @@ mod tests {
         let result = handle("process.env", &json!({})).unwrap();
         let env = result.as_object().unwrap();
         assert!(!env.is_empty());
-        // PATH 在所有平台上都应存在
-        let path_key = if cfg!(windows) { "PATH" } else { "PATH" };
-        assert!(env.contains_key(path_key) || env.contains_key("HOME"));
+        // 检查常见的环境变量（Windows 上 key 可能是 Path 而非 PATH）
+        let has_common = env.keys().any(|k| {
+            k.eq_ignore_ascii_case("PATH")
+                || k.eq_ignore_ascii_case("HOME")
+                || k.eq_ignore_ascii_case("USERPROFILE")
+                || k.eq_ignore_ascii_case("SYSTEMROOT")
+        });
+        assert!(has_common, "env should contain PATH/HOME/USERPROFILE/SYSTEMROOT, got keys: {:?}", env.keys().collect::<Vec<_>>());
     }
 
     #[test]
