@@ -16,8 +16,10 @@ mod ipc;
 mod window_manager;
 mod apis;
 use utils::{load_image, get_webview_data_dir};
+#[cfg(target_os = "windows")]
 use wry::WebViewBuilderExtWindows;
 use serde_json::json;
+#[cfg(target_os = "windows")]
 use raw_window_handle::HasWindowHandle;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::fs::File;
@@ -432,6 +434,7 @@ fn main() {
             }
             
             // 右键菜单（muda）
+            #[cfg(target_os = "windows")]
             Event::UserEvent(IpcTask::ContextMenu { window_id, callback_id, menu, x, y }) => {
                 let result = (|| -> Result<(), String> {
                     let menu = crate::apis::menu::build_menu(&menu)?;
@@ -441,12 +444,10 @@ fn main() {
                             let handle = entry.window.window_handle()
                                 .map_err(|e| format!("Failed to get window handle: {}", e))?;
                             let raw = handle.as_raw();
-                            #[cfg(target_os = "windows")]
                             let hwnd = match raw {
                                 raw_window_handle::RawWindowHandle::Win32(h) => h.hwnd.get() as isize,
                                 _ => return Err("Unsupported platform".to_string()),
                             };
-                            #[cfg(target_os = "windows")]
                             unsafe {
                                 use muda::ContextMenu;
                                 let position = muda::dpi::PhysicalPosition::new(x, y);
@@ -462,6 +463,16 @@ fn main() {
                     callback_id,
                     Some(json!(true)),
                     result.err(),
+                );
+                window_manager::eval(window_id, &script);
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            Event::UserEvent(IpcTask::ContextMenu { window_id, callback_id, .. }) => {
+                let script = ipc::build_response_script(
+                    callback_id,
+                    Some(json!(true)),
+                    Some("Context menu not supported on this platform".to_string()),
                 );
                 window_manager::eval(window_id, &script);
             }

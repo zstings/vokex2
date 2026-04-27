@@ -133,6 +133,11 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
                     }
                 }
             }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = &w;
+                let _ = opacity;
+            }
             Ok(json!(true))
         }),
         "browserWindow.setBackgroundColor" => with_window(params, |w| {
@@ -197,14 +202,17 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
                     unsafe {
                         let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
                         if flag {
-                            // 隐藏：去掉 APPWINDOW，加上 TOOLWINDOW
                             SetWindowLongW(hwnd, GWL_EXSTYLE, (ex_style & !WS_EX_APPWINDOW) | WS_EX_TOOLWINDOW);
                         } else {
-                            // 显示：加上 APPWINDOW，去掉 TOOLWINDOW
                             SetWindowLongW(hwnd, GWL_EXSTYLE, (ex_style | WS_EX_APPWINDOW) & !WS_EX_TOOLWINDOW);
                         }
                     }
                 }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = &w;
+                let _ = flag;
             }
             Ok(json!(true))
         }),
@@ -237,7 +245,6 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
                         _ => return Err("Unsupported platform".to_string()),
                     };
                     let flag = params.get("flag").and_then(|v| v.as_bool()).unwrap_or(true);
-                    // FLASHW_ALL = 3 (任务栏 + 标题栏), FLASHW_TIMERNOFG = 12 (未激活时闪烁)
                     let dw_flags = if flag { 3u32 } else { 0u32 };
                     unsafe {
                         let info = FLASHWINFO {
@@ -251,6 +258,8 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
                     }
                 }
             }
+            #[cfg(not(target_os = "windows"))]
+            let _ = &w;
             Ok(json!(true))
         }),
 
