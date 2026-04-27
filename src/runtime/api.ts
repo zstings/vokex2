@@ -1,7 +1,7 @@
 /**
  * vokex 框架 - 友好的 API 封装
  *
- * 提供类似 import { os } from 'vokex' 的调用方式
+ * 提供类似 import { os } from "vokex.app"; 的调用方式
  */
 
 import vokexCall from "./apis/vokexCall";

@@ -1,5 +1,5 @@
 
-import { http } from "vokex";
+import { http } from "vokex.app";
 import { clear, log } from "./utils";
 
 document.getElementById("btn-http-get")?.addEventListener("click", async () => {

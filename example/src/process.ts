@@ -1,4 +1,4 @@
-import { app, process } from "vokex";
+import { app, process } from "vokex.app";
 
 import { log, clear } from './utils'
 document.getElementById("btn-process-info")?.addEventListener("click", async () => {

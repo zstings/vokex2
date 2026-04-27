@@ -1,4 +1,4 @@
-import { computer } from "vokex";
+import { computer } from "vokex.app";
 import { clear, log } from "./utils";
 
 document.getElementById("btn-computer-cpu")?.addEventListener("click", async () => {

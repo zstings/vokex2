@@ -1,5 +1,5 @@
 import { log, clear } from './utils'
-import { storage } from 'vokex'
+import { storage } from "vokex.app";
 document.getElementById("btn-storage-set")?.addEventListener("click", async () => {
   clear();
   log("=== storage.setData() ===");

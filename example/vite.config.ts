@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { vokexPlugin } from "vokex/vite-plugin";
+import { vokexPlugin } from "vokex.app/vite-plugin";
 import { version } from "./package.json";
 
 export default defineConfig(({mode}) => {

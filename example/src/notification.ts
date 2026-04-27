@@ -1,4 +1,4 @@
-import { notification } from 'vokex';
+import { notification } from "vokex.app";
 import { log, clear } from './utils'
 
 document.getElementById("btn-notification")?.addEventListener("click", async () => {

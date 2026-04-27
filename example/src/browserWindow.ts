@@ -1,4 +1,4 @@
-import { browserWindow, events } from "vokex";
+import { browserWindow, events } from "vokex.app";
 
 import { log, clear } from './utils'
 

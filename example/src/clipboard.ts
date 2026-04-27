@@ -1,4 +1,4 @@
-import { clipboard } from 'vokex';
+import { clipboard } from "vokex.app";
 import { clear, log } from './utils';
 
 document.querySelector('#btn-clipboard-copy')?.addEventListener('click', async () => {

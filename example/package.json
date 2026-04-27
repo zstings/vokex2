@@ -8,9 +8,6 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
-    "vokex": "file:.."
-  },
   "devDependencies": {
     "vite": "^8.0.8"
   }

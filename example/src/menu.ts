@@ -1,4 +1,4 @@
-import { computer, menu } from "vokex";
+import { computer, menu } from "vokex.app";
 import { log, clear } from './utils';
 
 // 监听菜单点击事件

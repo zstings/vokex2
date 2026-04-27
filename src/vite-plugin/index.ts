@@ -85,6 +85,7 @@ export interface VokexPluginOptions {
 function getPrebuiltShellPath(isDev: boolean): string {
   const fileName = `${process.platform}-${process.arch}${isDev ? '-dev' : ''}.exe`;
   const currentDir = getCurrentDir();
+  console.log(currentDir,1);
   const path = resolve(currentDir, `../../prebuilt/${fileName}`);
   if (existsSync(path)) return path;
 

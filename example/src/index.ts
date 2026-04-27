@@ -1,4 +1,4 @@
-// import { app } from "vokex";
+// import { app } from "vokex.app";
 
 // import { log, clear } from './utils'
 

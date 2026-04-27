@@ -1,4 +1,4 @@
-import { shell, fs, app } from "vokex";
+import { shell, fs, app } from "vokex.app";
 
 import { log, clear } from './utils'
 

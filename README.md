@@ -84,7 +84,7 @@ import {
   notification,
   shell,
   menu
-} from "vokex";
+} from "vokex.app";
 
 // 应用信息
 const appName = await app.getName();

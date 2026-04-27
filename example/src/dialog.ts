@@ -1,4 +1,4 @@
-import { dialog, fs } from "vokex";
+import { dialog, fs } from "vokex.app";
 import { clear, log } from "./utils";
 
 document.querySelector('#btn-dialog-msg')?.addEventListener('click', async () => {
