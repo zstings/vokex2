@@ -85,7 +85,6 @@ export interface VokexPluginOptions {
 function getPrebuiltShellPath(): string {
   const fileName = `${process.platform}-${process.arch}.exe`;
   const currentDir = getCurrentDir();
-  console.log(currentDir,1);
   const path = resolve(currentDir, `../../prebuilt/${fileName}`);
   if (existsSync(path)) return path;
 
@@ -169,7 +168,7 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
 
     console.log(`[vokex] 启动壳，加载: ${devUrl}`);
     
-    const shell = spawn(shellPath, { 
+    const shell = spawn(shellPath, ['--env_dev'], { 
       stdio: ["ignore", "pipe", "pipe"],
       detached: true 
     });

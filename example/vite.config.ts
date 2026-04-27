@@ -3,7 +3,6 @@ import { vokexPlugin } from "vokex.app/vite-plugin";
 import { version } from "./package.json";
 
 export default defineConfig(({mode}) => {
-  console.log(mode)
   return {
     plugins: [
       vokexPlugin({

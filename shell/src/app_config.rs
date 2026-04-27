@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 use serde::Deserialize;
-#[cfg(not(debug_assertions))]
 use crate::Resources;
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -14,6 +13,7 @@ pub struct AppConfigSx {
     pub dev_url: Option<String>,
     pub devtools: bool,
     pub new_window: AppConfigNewWindow,
+    pub is_dev: bool,
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]
@@ -33,12 +33,22 @@ pub struct AppConfigNewWindow {
 static GLOBAL_CONFIG: OnceLock<AppConfigSx> = OnceLock::new();
 
 pub fn init_app_config() {
-    let config = load_config();
+    // 检查命令行参数中是否包含 "--env_dev"
+    let is_dev = std::env::args().any(|arg| arg == "--env_dev");
+    let mut config = load_config(is_dev);
+    config.is_dev = is_dev;
     GLOBAL_CONFIG.set(config).expect("Failed to initialize app config");
 }
 
-#[cfg(debug_assertions)]
-fn load_config() -> AppConfigSx {
+fn load_config(is_dev: bool) -> AppConfigSx {
+    if is_dev {
+        return load_config_dev();
+    } else {
+        return load_config_prod();
+    }
+}
+
+fn load_config_dev() -> AppConfigSx {
     // 读取壳目录下的 vokex-config.json
     let config_path = std::env::current_exe()
         .expect("Failed to get exe path")
@@ -53,8 +63,7 @@ fn load_config() -> AppConfigSx {
         .expect("Failed to parse vokex-config.json")
 }
 
-#[cfg(not(debug_assertions))]
-fn load_config() -> AppConfigSx {
+fn load_config_prod() -> AppConfigSx {
     let exe_path = std::env::current_exe()
         .expect("Failed to get current exe path");
     
