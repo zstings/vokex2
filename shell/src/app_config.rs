@@ -83,3 +83,21 @@ fn load_config_prod() -> AppConfigSx {
 pub fn get_config() -> &'static AppConfigSx {
     GLOBAL_CONFIG.get().expect("App config not initialized")
 }
+
+#[cfg(test)]
+pub fn init_test_config() {
+    let config = AppConfigSx {
+        identifier: "com.vokex.test".to_string(),
+        name: "Vokex Test".to_string(),
+        version: "0.1.0".to_string(),
+        icon: "".to_string(),
+        window: AppConfigWindowSx {
+            title: "Test".to_string(),
+            width: 800,
+            height: 600,
+        },
+        ..Default::default()
+    };
+    // OnceLock::set 只会成功一次，后续调用自动忽略
+    let _ = GLOBAL_CONFIG.set(config);
+}

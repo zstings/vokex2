@@ -124,3 +124,56 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         _ => Err(format!("Unknown method: {}", method)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_exec_command_echo() {
+        let (cmd, expected) = if cfg!(windows) {
+            ("echo hello", "hello")
+        } else {
+            ("echo hello", "hello")
+        };
+        let result = handle("shell.execCommand", &json!({"command": cmd})).unwrap();
+        assert_eq!(result["code"], json!(0));
+        assert!(result["success"].as_bool().unwrap());
+        let stdout = result["stdout"].as_str().unwrap();
+        assert!(stdout.contains(expected), "stdout should contain '{}', got: '{}'", expected, stdout);
+    }
+
+    #[test]
+    fn test_exec_command_failure() {
+        let cmd = if cfg!(windows) {
+            "cmd /c exit 1"
+        } else {
+            "sh -c 'exit 1'"
+        };
+        let result = handle("shell.execCommand", &json!({"command": cmd})).unwrap();
+        assert!(!result["success"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_exec_command_with_cwd() {
+        let tmp = std::env::temp_dir().to_string_lossy().to_string();
+        let cmd = if cfg!(windows) { "cd" } else { "pwd" };
+        let result = handle("shell.execCommand", &json!({
+            "command": cmd,
+            "cwd": tmp
+        })).unwrap();
+        assert_eq!(result["code"], json!(0));
+    }
+
+    #[test]
+    fn test_exec_command_missing_command() {
+        let result = handle("shell.execCommand", &json!({}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        assert!(handle("shell.unknownMethod", &json!({})).is_err());
+    }
+}

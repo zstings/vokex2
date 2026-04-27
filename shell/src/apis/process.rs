@@ -71,3 +71,50 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         _ => Err(format!("Unknown method: {}", method)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_get_uptime() {
+        let result = handle("process.getUptime", &json!({})).unwrap();
+        // 测试环境下 START_TIME 为 0，uptime 是当前时间戳
+        assert!(result.as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn test_get_cpu_usage() {
+        let result = handle("process.getCpuUsage", &json!({})).unwrap();
+        assert!(result["user"].as_f64().is_some());
+    }
+
+    #[test]
+    fn test_get_memory_info() {
+        let result = handle("process.getMemoryInfo", &json!({})).unwrap();
+        assert!(result["total"].as_u64().unwrap() > 0);
+        assert!(result["used"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn test_hostname() {
+        let result = handle("process.hostname", &json!({})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_env() {
+        let result = handle("process.env", &json!({})).unwrap();
+        let env = result.as_object().unwrap();
+        assert!(!env.is_empty());
+        // PATH 在所有平台上都应存在
+        let path_key = if cfg!(windows) { "PATH" } else { "PATH" };
+        assert!(env.contains_key(path_key) || env.contains_key("HOME"));
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        assert!(handle("process.unknownMethod", &json!({})).is_err());
+    }
+}

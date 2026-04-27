@@ -159,3 +159,65 @@ fn get_keyboard_layout() -> Result<serde_json::Value, String> {
 fn get_keyboard_layout() -> Result<serde_json::Value, String> {
     Err("getKeyboardLayout not implemented on this platform".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_get_cpu_info() {
+        let result = handle("computer.getCpuInfo", &json!({})).unwrap();
+        assert!(!result["model"].as_str().unwrap_or("").is_empty());
+        assert!(result["cores"].as_u64().unwrap_or(0) > 0);
+    }
+
+    #[test]
+    fn test_get_os_info() {
+        let result = handle("computer.getOsInfo", &json!({})).unwrap();
+        assert!(!result["name"].as_str().unwrap_or("").is_empty());
+        assert!(!result["platform"].as_str().unwrap_or("").is_empty());
+        assert!(!result["arch"].as_str().unwrap_or("").is_empty());
+    }
+
+    #[test]
+    fn test_get_mouse_position() {
+        let result = handle("computer.getMousePosition", &json!({}));
+        if cfg!(windows) {
+            assert!(result.is_ok());
+            let pos = result.unwrap();
+            assert!(pos["x"].is_number());
+            assert!(pos["y"].is_number());
+        } else {
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_get_keyboard_layout() {
+        let result = handle("computer.getKeyboardLayout", &json!({}));
+        if cfg!(windows) {
+            assert!(result.is_ok());
+            assert!(!result.unwrap().as_str().unwrap().is_empty());
+        } else {
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_get_displays() {
+        let result = handle("computer.getDisplays", &json!({}));
+        if cfg!(windows) {
+            assert!(result.is_ok());
+            let displays = result.unwrap();
+            assert!(displays["displays"].is_array());
+        } else {
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        assert!(handle("computer.unknownMethod", &json!({})).is_err());
+    }
+}

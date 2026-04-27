@@ -134,13 +134,13 @@ fn request_single_instance_lock() -> Result<serde_json::Value, String> {
             return Ok(json!(true));
         }
     }
-    
+
     let config = crate::app_config::get_config();
     let lock_path = std::env::temp_dir().join(format!("{}.lock", config.identifier));
-    
+
     let file = File::create(&lock_path)
         .map_err(|e| format!("Failed to create lock file: {}", e))?;
-    
+
     match file.try_lock_exclusive() {
         Ok(_) => {
             let mut guard = INSTANCE_LOCK.lock().unwrap();
@@ -150,5 +150,139 @@ fn request_single_instance_lock() -> Result<serde_json::Value, String> {
         Err(_) => {
             Ok(json!(false))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn ensure_config() {
+        crate::app_config::init_test_config();
+    }
+
+    #[test]
+    fn test_get_name() {
+        ensure_config();
+        let result = handle("app.getName", &json!({})).unwrap();
+        assert_eq!(result, json!("Vokex Test"));
+    }
+
+    #[test]
+    fn test_get_version() {
+        ensure_config();
+        let result = handle("app.getVersion", &json!({})).unwrap();
+        assert_eq!(result, json!("0.1.0"));
+    }
+
+    #[test]
+    fn test_get_identifier() {
+        ensure_config();
+        let result = handle("app.getIdentifier", &json!({})).unwrap();
+        assert_eq!(result, json!("com.vokex.test"));
+    }
+
+    #[test]
+    fn test_get_pid() {
+        ensure_config();
+        let result = handle("app.getPid", &json!({})).unwrap();
+        assert!(result.as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn test_get_platform() {
+        ensure_config();
+        let result = handle("app.getPlatform", &json!({})).unwrap();
+        let platform = result.as_str().unwrap();
+        assert!(platform == "windows" || platform == "linux" || platform == "macos");
+    }
+
+    #[test]
+    fn test_get_arch() {
+        ensure_config();
+        let result = handle("app.getArch", &json!({})).unwrap();
+        let arch = result.as_str().unwrap();
+        assert!(!arch.is_empty());
+    }
+
+    #[test]
+    fn test_get_locale() {
+        ensure_config();
+        let result = handle("app.getLocale", &json!({})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_app_path() {
+        ensure_config();
+        let result = handle("app.getAppPath", &json!({})).unwrap();
+        let path = result.as_str().unwrap();
+        assert!(!path.is_empty());
+    }
+
+    #[test]
+    fn test_get_path_home() {
+        ensure_config();
+        let result = handle("app.getPath", &json!({"name": "home"})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_path_temp() {
+        ensure_config();
+        let result = handle("app.getPath", &json!({"name": "temp"})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_path_cwd() {
+        ensure_config();
+        let result = handle("app.getPath", &json!({"name": "cwd"})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_path_invalid() {
+        ensure_config();
+        let result = handle("app.getPath", &json!({"name": "nonexistent"}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_argv() {
+        ensure_config();
+        let result = handle("app.getArgv", &json!({})).unwrap();
+        assert!(result.as_array().unwrap().len() > 0);
+    }
+
+    #[test]
+    fn test_get_env() {
+        ensure_config();
+        // PATH/HOME 在所有平台上都应存在
+        let key = if cfg!(windows) { "PATH" } else { "HOME" };
+        let result = handle("app.getEnv", &json!({"key": key})).unwrap();
+        assert!(!result.as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_env_missing_key() {
+        ensure_config();
+        let result = handle("app.getEnv", &json!({}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_request_single_instance_lock() {
+        ensure_config();
+        let result = handle("app.requestSingleInstanceLock", &json!({})).unwrap();
+        // 第一次调用应该成功获取锁
+        assert!(result.as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        ensure_config();
+        assert!(handle("app.unknownMethod", &json!({})).is_err());
     }
 }

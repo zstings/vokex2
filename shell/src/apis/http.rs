@@ -52,3 +52,40 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         _ => Err(format!("Unknown method: {}", method)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_missing_url() {
+        let result = handle("http.request", &json!({}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unsupported_method() {
+        let result = handle("http.request", &json!({
+            "url": "http://example.com",
+            "method": "INVALID"
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        assert!(handle("http.unknownMethod", &json!({})).is_err());
+    }
+
+    #[test]
+    fn test_request_to_closed_port() {
+        // 连接到一个未开放的端口，应快速失败
+        let result = handle("http.request", &json!({
+            "url": "http://127.0.0.1:1/",
+            "method": "GET",
+            "timeout": 2
+        }));
+        assert!(result.is_err());
+    }
+}

@@ -129,7 +129,6 @@ fn move_file(params: &Value) -> Result<Value, String> {
         .map_err(|e| e.to_string())
 }
 
-/// 简单的 base64 编码（不引入额外依赖）
 fn base64_encode(bytes: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut result = String::new();
@@ -152,4 +151,192 @@ fn base64_encode(bytes: &[u8]) -> String {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::fs;
+
+    fn temp_path(name: &str) -> String {
+        std::env::temp_dir()
+            .join(format!("vokex_test_{}", name))
+            .to_string_lossy()
+            .to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let p = std::path::Path::new(path);
+        if p.is_dir() {
+            let _ = fs::remove_dir_all(p);
+        } else if p.exists() {
+            let _ = fs::remove_file(p);
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_file() {
+        let path = temp_path("rw.txt");
+        cleanup(&path);
+
+        handle("fs.writeFile", &json!({"path": path, "data": "你好 vokex"})).unwrap();
+        let result = handle("fs.readFile", &json!({"path": path})).unwrap();
+        assert_eq!(result, json!("你好 vokex"));
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_read_nonexistent_file() {
+        let result = handle("fs.readFile", &json!({"path": "/nonexistent/path/file.txt"}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_write_and_read_binary() {
+        let path = temp_path("binary.bin");
+        cleanup(&path);
+
+        let data: Vec<u8> = vec![0, 1, 2, 255, 254, 253];
+        fs::write(&path, &data).unwrap();
+
+        let result = handle("fs.readFileBinary", &json!({"path": path})).unwrap();
+        let b64 = result.as_str().unwrap();
+        // 验证返回的是 base64 字符串
+        assert!(!b64.is_empty());
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_append_file() {
+        let path = temp_path("append.txt");
+        cleanup(&path);
+
+        handle("fs.writeFile", &json!({"path": path, "data": "第一行\n"})).unwrap();
+        handle("fs.appendFile", &json!({"path": path, "data": "第二行"})).unwrap();
+        let result = handle("fs.readFile", &json!({"path": path})).unwrap();
+        assert_eq!(result, json!("第一行\n第二行"));
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_delete_file() {
+        let path = temp_path("delete.txt");
+        cleanup(&path);
+
+        handle("fs.writeFile", &json!({"path": path, "data": "tmp"})).unwrap();
+        assert!(handle("fs.exists", &json!({"path": path})).unwrap().as_bool().unwrap());
+
+        handle("fs.deleteFile", &json!({"path": path})).unwrap();
+        assert!(!handle("fs.exists", &json!({"path": path})).unwrap().as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_create_and_read_dir() {
+        let dir = temp_path("testdir");
+        cleanup(&dir);
+
+        handle("fs.createDir", &json!({"path": dir})).unwrap();
+        // 在目录里创建几个文件
+        fs::write(std::path::Path::new(&dir).join("a.txt"), "a").unwrap();
+        fs::write(std::path::Path::new(&dir).join("b.txt"), "b").unwrap();
+
+        let result = handle("fs.readDir", &json!({"path": dir})).unwrap();
+        let entries: Vec<_> = result.as_array().unwrap().iter()
+            .map(|e| e["name"].as_str().unwrap().to_string())
+            .collect();
+        assert!(entries.contains(&"a.txt".to_string()));
+        assert!(entries.contains(&"b.txt".to_string()));
+
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn test_remove_dir() {
+        let dir = temp_path("rmdir");
+        cleanup(&dir);
+
+        fs::create_dir_all(std::path::Path::new(&dir).join("sub")).unwrap();
+        handle("fs.writeFile", &json!({"path": format!("{}/sub/f.txt", dir), "data": "x"})).unwrap();
+
+        handle("fs.removeDir", &json!({"path": dir})).unwrap();
+        assert!(!handle("fs.exists", &json!({"path": dir})).unwrap().as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_stat_file() {
+        let path = temp_path("stat.txt");
+        cleanup(&path);
+
+        handle("fs.writeFile", &json!({"path": path, "data": "hello world"})).unwrap();
+        let result = handle("fs.stat", &json!({"path": path})).unwrap();
+
+        assert_eq!(result["isFile"], json!(true));
+        assert_eq!(result["isDir"], json!(false));
+        assert_eq!(result["size"], json!(11));
+        assert!(result["modified"].as_u64().unwrap() > 0);
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_exists() {
+        let path = temp_path("exists.txt");
+        cleanup(&path);
+
+        assert!(!handle("fs.exists", &json!({"path": path})).unwrap().as_bool().unwrap());
+        handle("fs.writeFile", &json!({"path": path, "data": "x"})).unwrap();
+        assert!(handle("fs.exists", &json!({"path": path})).unwrap().as_bool().unwrap());
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_copy_file() {
+        let src = temp_path("copy_src.txt");
+        let dst = temp_path("copy_dst.txt");
+        cleanup(&src);
+        cleanup(&dst);
+
+        handle("fs.writeFile", &json!({"path": src, "data": "copy me"})).unwrap();
+        handle("fs.copyFile", &json!({"source": src, "destination": dst})).unwrap();
+
+        let result = handle("fs.readFile", &json!({"path": dst})).unwrap();
+        assert_eq!(result, json!("copy me"));
+
+        cleanup(&src);
+        cleanup(&dst);
+    }
+
+    #[test]
+    fn test_move_file() {
+        let src = temp_path("move_src.txt");
+        let dst = temp_path("move_dst.txt");
+        cleanup(&src);
+        cleanup(&dst);
+
+        handle("fs.writeFile", &json!({"path": src, "data": "move me"})).unwrap();
+        handle("fs.moveFile", &json!({"source": src, "destination": dst})).unwrap();
+
+        assert!(!handle("fs.exists", &json!({"path": src})).unwrap().as_bool().unwrap());
+        let result = handle("fs.readFile", &json!({"path": dst})).unwrap();
+        assert_eq!(result, json!("move me"));
+
+        cleanup(&dst);
+    }
+
+    #[test]
+    fn test_missing_params() {
+        assert!(handle("fs.readFile", &json!({})).is_err());
+        assert!(handle("fs.writeFile", &json!({"path": "/tmp/t"})).is_err());
+        assert!(handle("fs.writeFile", &json!({"data": "x"})).is_err());
+    }
+
+    #[test]
+    fn test_unknown_method() {
+        assert!(handle("fs.unknownMethod", &json!({})).is_err());
+    }
 }
