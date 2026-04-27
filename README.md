@@ -1,14 +1,14 @@
 # Vokex
 
-[![npm version](https://img.shields.io/npm/v/vokex)](https://www.npmjs.com/package/vokex)
-[![license](https://img.shields.io/npm/l/vokex)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/vokex.app)](https://www.npmjs.com/package/vokex.app)
+[![license](https://img.shields.io/npm/l/vokex.app)](LICENSE)
 
 超轻量级桌面应用构建库。Vite 构建后一键打包为原生可执行文件。
 
 ## 特性
 
 - **超轻量**：构建产物最小 ~1.8MB，仅依赖系统 WebView
-- **零 Rust 门槛**：`npm install vokex` 即可使用，不需要 Rust 工具链
+- **零 Rust 门槛**：`npm install vokex.app` 即可使用，不需要 Rust 工具链
 - **Vite 原生集成**：Vite 插件自动接管构建流程
 - **单文件输出**：前端资源嵌入到可执行文件中
 - **双模式运行**：开发时在浏览器中调试，生产时在原生壳中运行
@@ -25,13 +25,13 @@
 npm create vite@latest my-app -- --template vanilla
 cd my-app
 
-# 安装 vokex
+# 安装 vokex.app
 npm install vokex.app
 ```
 
 ### 2. 安装依赖
 
-vokex 需要 Vite 作为 peer dependency，确保已安装：
+vokex.app 需要 Vite 作为 peer dependency，确保已安装：
 
 ```bash
 npm install vite@^8.0.0
@@ -42,7 +42,7 @@ npm install vite@^8.0.0
 ```ts
 // vite.config.ts
 import { defineConfig } from "vite";
-import { vokexPlugin } from "vokex/vite-plugin";
+import { vokexPlugin } from "vokex.app/vite-plugin";
 
 export default defineConfig({
   plugins: [
@@ -153,7 +153,7 @@ await shell.trashItem("trashfile.txt");
 
 ```bash
 npm run build
-# 即 vite build，Vite 构建完成后，vokex 插件自动将 dist/ 嵌入到可执行文件
+# 即 vite build，Vite 构建完成后，vokex.app 插件自动将 dist/ 嵌入到可执行文件
 # 输出到 release/ 目录
 ```
 
@@ -161,14 +161,14 @@ npm run build
 
 ```bash
 npm run dev
-# 即 vite，Vite 开发服务器启动后，vokex 插件自动启动原生壳
+# 即 vite，Vite 开发服务器启动后，vokex.app 插件自动启动原生壳
 ```
 
 ### 7. 验证构建产物
 
 ```bash
-npx vokex validate release/我的应用.exe
-# 验证二进制文件是否为有效的 vokex 应用
+npx vokex.app validate release/我的应用.exe
+# 验证二进制文件是否为有效的 vokex.app 应用
 ```
 
 ## 架构
@@ -176,7 +176,7 @@ npx vokex validate release/我的应用.exe
 ```
 ┌─────────────────────────────────┐
 │  前端代码 (HTML/JS/CSS)          │
-│  import { app, fs, http } from "vokex" │
+│  import { app, fs, http } from "vokex.app" │
 ├─────────────────────────────────┤
 │  运行时 Bridge (注入 JS)         │
 │  window.__VOKEX__.call("fs.read")   │
@@ -215,7 +215,7 @@ cargo build --release
 
 ## API 参考
 
-vokex 提供了丰富的 API 用于桌面应用开发。所有 API 都是异步的，返回 Promise。
+vokex.app 提供了丰富的 API 用于桌面应用开发。所有 API 都是异步的，返回 Promise。
 
 ### app - 应用管理
 `quit()` `exit(code)` `restart()` `getAppPath()` `getPath(name)` `getVersion()` `getName()` `getIdentifier()` `getLocale()` `getPid()` `getArgv()` `getEnv(key)` `getPlatform()` `getArch()` `requestSingleInstanceLock()` `on(event, callback)`

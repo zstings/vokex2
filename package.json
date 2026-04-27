@@ -55,5 +55,10 @@
     "vite",
     "lightweight"
   ],
+  "homepage": "https://github.com/zstings/vokex#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zstings/vokex.git"
+  },
   "license": "MIT"
 }
