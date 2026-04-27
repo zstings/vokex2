@@ -4,5 +4,4 @@ release/
 .DS_Store
 *.log
 prebuilt/*
-!prebuilt/*.exe
-prebuilt/*-dev.exe
+!prebuilt/*-x64*

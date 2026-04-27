@@ -59,25 +59,23 @@ jobs:
         shell: bash
         run: |
           cp shell/target/release/vokex-shell${{ matrix.ext }} \
-             vokex-${{ matrix.target }}${{ matrix.ext }}
-        # Windows 上 cargo 输出 vokex-shell.exe
+             ${{ matrix.target }}${{ matrix.ext }}
 
       - name: Upload prebuilt binary
         uses: actions/upload-artifact@v4
         with:
-          name: vokex-${{ matrix.target }}
-          path: vokex-${{ matrix.target }}${{ matrix.ext }}
+          name: prebuilt-${{ matrix.target }}
+          path: ${{ matrix.target }}${{ matrix.ext }}
 
   # 所有平台构建成功后，合并到一个 artifact
   collect:
     name: Collect all platforms
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: vokex-*
+          pattern: prebuilt-*
           merge-multiple: true
           path: prebuilt/
 
