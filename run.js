@@ -50,7 +50,7 @@ async function buildShellDev() {
   const platforn = process.platform + "-" + process.arch;
   await execCommand("cargo", ["build", "--manifest-path=shell/Cargo.toml"]);
   await execCommand("powershell", [
-    `-Command "Copy-Item 'shell/target/debug/vokex-shell.exe' 'prebuilt/${platforn}-dev.exe' -Force"`,
+    `-Command "Copy-Item 'shell/target/debug/vokex-shell.exe' 'prebuilt/${platforn}.exe' -Force"`,
   ]);
   console.log("✅ [Shell] 构建完成");
 }

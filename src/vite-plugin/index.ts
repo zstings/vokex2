@@ -82,8 +82,8 @@ export interface VokexPluginOptions {
 }
 
 /** 获取预编译壳路径 */
-function getPrebuiltShellPath(isDev: boolean): string {
-  const fileName = `${process.platform}-${process.arch}${isDev ? '-dev' : ''}.exe`;
+function getPrebuiltShellPath(): string {
+  const fileName = `${process.platform}-${process.arch}.exe`;
   const currentDir = getCurrentDir();
   console.log(currentDir,1);
   const path = resolve(currentDir, `../../prebuilt/${fileName}`);
@@ -134,7 +134,7 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
   function startShell(devUrl: string) {
     // 将public直接复制到壳所在的位置 改名 为 devDist
     const publicDir = resolve(process.cwd(), "public");
-    const shellPath = getPrebuiltShellPath(isDev);
+    const shellPath = getPrebuiltShellPath();
     const shellDir = dirname(shellPath);
     const entries = readdirSync(shellDir, { withFileTypes: true });
     // 删除除 exe 以外的所有文件和目录
@@ -207,7 +207,7 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
   // 执行构建
   async function doBuild() {
     const inputDir = getInputDir();
-    const shellPath = getPrebuiltShellPath(isDev);
+    const shellPath = getPrebuiltShellPath();
     const outputPath = getOutputPath();
 
     if (!existsSync(inputDir)) {
