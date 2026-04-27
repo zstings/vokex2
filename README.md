@@ -26,7 +26,7 @@ npm create vite@latest my-app -- --template vanilla
 cd my-app
 
 # 安装 vokex
-npm install vokex
+npm install vokex.app
 ```
 
 ### 2. 安装依赖
