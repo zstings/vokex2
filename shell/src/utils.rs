@@ -24,13 +24,10 @@ pub fn has_flag(name: &str) -> bool {
 /// 通过资源路径加载图片为 Icon 对象（只支持 PNG 格式）
 /// 开发模式：从文件系统读取，正式模式：从 exe 嵌入资源读取
 pub fn load_image(path: &str) -> Option<tao::window::Icon> {
-    #[cfg(debug_assertions)]
-    let data = {
+    let data = if crate::app_config::get_config().is_dev {
         let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
         std::fs::read(exe_dir.join(path)).ok()?
-    };
-    #[cfg(not(debug_assertions))]
-    let data = {
+    } else {
         let exe_path = std::env::current_exe().ok()?;
         let resources = crate::Resources::load_from_exe(&exe_path).ok()?;
         resources.get(path)?.to_vec()
