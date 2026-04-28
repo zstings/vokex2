@@ -36,6 +36,10 @@ export interface MenuItem {
  * Menu API
  */
 export interface MenuAPI {
+    /** 设置应用顶部菜单栏 */
+    setApplicationMenu(menu: MenuItem[]): Promise<void>;
+    /** 移除应用顶部菜单栏 */
+    removeApplicationMenu(): Promise<void>;
     /** 设置右键上下文菜单 */
     setContextMenu(menu: MenuItem[], x?: number, y?: number): Promise<void>;
     /** 监听菜单点击事件 */
@@ -46,23 +50,15 @@ export interface MenuAPI {
  * Menu API
  */
 export const menu: MenuAPI = {
-    /**
-     * 设置应用顶部菜单栏
-     * TODO: Rust端未实现，后续可能会实现
-     */
-    // setApplicationMenu: (menuItems: MenuItem[]): Promise<void> => vokexCall('menu.setApplicationMenu', { menu: menuItems }),
+    setApplicationMenu: (menuItems: MenuItem[]): Promise<void> =>
+        vokexCall('menu.setApplicationMenu', { menu: menuItems }),
 
-    /**
-     * 设置右键上下文菜单
-     */
-    setContextMenu: (menuItems: MenuItem[], x?: number, y?: number): Promise<void> => vokexCall('menu.setContextMenu', { menu: menuItems, x, y }),
-    /**
-     * 移除右键上下文菜单
-     * TODO: Rust端未实现，后续可能会实现
-     */
-    // removeContextMenu: (): Promise<void> => vokexCall('menu.removeContextMenu'),
-    /** 
-     * 监听菜单点击事件
-     */
-    onMenuClick: (callback: (data: { id: string }) => void) => events.on(`menu.click`, callback),
+    removeApplicationMenu: (): Promise<void> =>
+        vokexCall('menu.removeApplicationMenu'),
+
+    setContextMenu: (menuItems: MenuItem[], x?: number, y?: number): Promise<void> =>
+        vokexCall('menu.setContextMenu', { menu: menuItems, x, y }),
+
+    onMenuClick: (callback: (data: { id: string }) => void) =>
+        events.on(`menu.click`, callback),
 };

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::cell::RefCell;
 use tao::event_loop::EventLoopProxy;
 use std::sync::Arc;
@@ -88,9 +89,21 @@ pub fn process_request(window_id: u32, body: &str) {
         });
         return;
     }
-    // menu.setApplicationMenu 暂未实现（WebView2 覆盖菜单栏问题，详见 docs/setApplicationMenu-issue.md）
+    // menu.setApplicationMenu 在主线程设置原生菜单栏
     if req.method == "menu.setApplicationMenu" {
-        let response = IpcResponse { id: req.id, result: Some(serde_json::Value::String("待实现".to_string())), error: None };
+        let menu_template = req.params.get("menu").cloned().unwrap_or(serde_json::json!([]));
+        let response = match crate::apis::menu::set_application_menu(&menu_template) {
+            Ok(()) => IpcResponse { id: req.id, result: Some(json!(true)), error: None },
+            Err(e) => IpcResponse { id: req.id, result: None, error: Some(e) },
+        };
+        let json = serde_json::to_string(&response).unwrap_or_default();
+        let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
+        crate::window_manager::eval(window_id, &script);
+        return;
+    }
+    if req.method == "menu.removeApplicationMenu" {
+        crate::apis::menu::remove_application_menu();
+        let response = IpcResponse { id: req.id, result: Some(json!(true)), error: None };
         let json = serde_json::to_string(&response).unwrap_or_default();
         let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
         crate::window_manager::eval(window_id, &script);

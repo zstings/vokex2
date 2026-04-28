@@ -1,5 +1,12 @@
 use serde_json::Value;
 use muda::{Menu, MenuItem, CheckMenuItem, Submenu, PredefinedMenuItem};
+use std::cell::RefCell;
+#[cfg(target_os = "windows")]
+use raw_window_handle::HasWindowHandle;
+
+thread_local! {
+    static APP_MENU: RefCell<Option<Menu>> = RefCell::new(None);
+}
 
 fn build_menu_items(items: &Value) -> Result<Vec<Box<dyn muda::IsMenuItem>>, String> {
     let mut result: Vec<Box<dyn muda::IsMenuItem>> = Vec::new();
@@ -28,6 +35,33 @@ fn build_menu_items(items: &Value) -> Result<Vec<Box<dyn muda::IsMenuItem>>, Str
                         let menu_item = CheckMenuItem::with_id(id, label, enabled, checked, None);
                         result.push(Box::new(menu_item));
                     }
+                    "native" => {
+                        let native_label = obj.get("nativeLabel").and_then(|v| v.as_str()).unwrap_or("");
+                        let item: PredefinedMenuItem = match native_label {
+                            "separator" => PredefinedMenuItem::separator(),
+                            "copy" => PredefinedMenuItem::copy(None),
+                            "cut" => PredefinedMenuItem::cut(None),
+                            "paste" => PredefinedMenuItem::paste(None),
+                            "selectAll" => PredefinedMenuItem::select_all(None),
+                            "undo" => PredefinedMenuItem::undo(None),
+                            "redo" => PredefinedMenuItem::redo(None),
+                            "minimize" => PredefinedMenuItem::minimize(None),
+                            "maximize" => PredefinedMenuItem::maximize(None),
+                            "fullscreen" => PredefinedMenuItem::fullscreen(None),
+                            "hide" => PredefinedMenuItem::hide(None),
+                            "hideOthers" => PredefinedMenuItem::hide_others(None),
+                            "showAll" => PredefinedMenuItem::show_all(None),
+                            "closeWindow" => PredefinedMenuItem::close_window(None),
+                            "quit" => PredefinedMenuItem::quit(None),
+                            "about" => PredefinedMenuItem::about(None, None),
+                            "services" => PredefinedMenuItem::services(None),
+                            "bringAllToFront" => PredefinedMenuItem::bring_all_to_front(None),
+                            _ => {
+                                return Err(format!("Unknown native label: {}", native_label));
+                            }
+                        };
+                        result.push(Box::new(item));
+                    }
                     _ => {
                         let label = obj.get("label").and_then(|v| v.as_str()).unwrap_or("");
                         let enabled = obj.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
@@ -49,4 +83,98 @@ pub fn build_menu(items: &Value) -> Result<Menu, String> {
         menu.append(item.as_ref()).map_err(|e| format!("{}", e))?;
     }
     Ok(menu)
+}
+
+/// 设置原生应用菜单栏
+pub fn set_application_menu(template: &Value) -> Result<(), String> {
+    // 先移除旧菜单
+    remove_application_menu();
+
+    let menu = build_menu(template)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        set_menu_windows(&menu)?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        menu.init_for_nsapp();
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        return Err("Application menu not supported on this platform".to_string());
+    }
+
+    APP_MENU.with(|m| {
+        *m.borrow_mut() = Some(menu);
+    });
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn set_menu_windows(menu: &Menu) -> Result<(), String> {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
+    };
+
+    let hwnd = crate::window_manager::MANAGER.with(|m| {
+        let manager = m.borrow();
+        let entry = manager.get(1).ok_or("主窗口不存在")?;
+        let handle = entry.window.window_handle()
+            .map_err(|e| format!("获取窗口句柄失败: {}", e))?;
+        let raw = handle.as_raw();
+        match raw {
+            raw_window_handle::RawWindowHandle::Win32(h) => Ok(h.hwnd.get() as isize),
+            _ => Err("不是 Windows 窗口".to_string()),
+        }
+    })?;
+
+    unsafe {
+        menu.init_for_hwnd(hwnd)
+            .map_err(|e| format!("菜单挂载失败: {}", e))?;
+
+        // 强制窗口重新计算非客户区，触发 WM_NCCALCSIZE → WM_SIZE，
+        // 使 WebView2 的渲染区域让出菜单栏空间。之前方案失败的关键遗漏步骤。
+        SetWindowPos(
+            hwnd as _,
+            0,
+            0, 0, 0, 0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+    }
+
+    Ok(())
+}
+
+pub fn remove_application_menu() {
+    APP_MENU.with(|m| {
+        let mut guard = m.borrow_mut();
+        if let Some(menu) = guard.take() {
+            #[cfg(target_os = "windows")]
+            {
+                let hwnd_opt = crate::window_manager::MANAGER.with(|m| {
+                    let manager = m.borrow();
+                    manager.get(1).and_then(|entry| {
+                        entry.window.window_handle().ok()
+                    }).map(|handle| {
+                        match handle.as_raw() {
+                            raw_window_handle::RawWindowHandle::Win32(h) => Some(h.hwnd.get() as isize),
+                            _ => None,
+                        }
+                    }).flatten()
+                });
+                if let Some(hwnd) = hwnd_opt {
+                    unsafe {
+                        let _ = menu.remove_for_hwnd(hwnd);
+                    }
+                }
+            }
+            #[cfg(target_os = "macos")]
+            {
+                menu.remove_for_nsapp();
+            }
+            // menu 在这里被 drop，释放菜单资源
+        }
+    });
 }

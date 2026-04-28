@@ -244,6 +244,71 @@ fn build_webview(
     builder.build(window).map_err(|e| format!("Failed to build webview: {}", e))
 }
 
+/// 显示右键上下文菜单（跨平台）
+fn show_context_menu(window_id: u32, menu_json: &serde_json::Value, x: f64, y: f64) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    return show_context_menu_windows(window_id, menu_json, x, y);
+
+    #[cfg(target_os = "macos")]
+    return show_context_menu_macos(window_id, menu_json, x, y);
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let _ = (window_id, menu_json, x, y);
+        return Err("Context menu not supported on this platform".to_string());
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn show_context_menu_windows(window_id: u32, menu_json: &serde_json::Value, x: f64, y: f64) -> Result<(), String> {
+    use muda::ContextMenu;
+    let menu = crate::apis::menu::build_menu(menu_json)?;
+    crate::window_manager::MANAGER.with(|m| {
+        let manager = m.borrow();
+        let entry = manager.get(window_id).ok_or("Window not found")?;
+        let handle = entry.window.window_handle()
+            .map_err(|e| format!("Failed to get window handle: {}", e))?;
+        let raw = handle.as_raw();
+        let hwnd = match raw {
+            raw_window_handle::RawWindowHandle::Win32(h) => h.hwnd.get() as isize,
+            _ => return Err("Not a Windows window".to_string()),
+        };
+        unsafe {
+            let position = muda::dpi::PhysicalPosition::new(x, y);
+            let ok = menu.show_context_menu_for_hwnd(hwnd, Some(position.into()));
+            if !ok {
+                return Err("Failed to show context menu".to_string());
+            }
+        }
+        Ok(())
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn show_context_menu_macos(window_id: u32, menu_json: &serde_json::Value, x: f64, y: f64) -> Result<(), String> {
+    use muda::ContextMenu;
+    let menu = crate::apis::menu::build_menu(menu_json)?;
+    crate::window_manager::MANAGER.with(|m| {
+        let manager = m.borrow();
+        let entry = manager.get(window_id).ok_or("Window not found")?;
+        let handle = entry.window.window_handle()
+            .map_err(|e| format!("Failed to get window handle: {}", e))?;
+        let raw = handle.as_raw();
+        let ns_view = match raw {
+            raw_window_handle::RawWindowHandle::AppKit(h) => h.ns_view.as_ptr(),
+            _ => return Err("Not a macOS window".to_string()),
+        };
+        unsafe {
+            let position = muda::dpi::PhysicalPosition::new(x, y);
+            let ok = menu.show_context_menu_for_nsview(ns_view as *mut std::ffi::c_void, Some(position.into()));
+            if !ok {
+                return Err("Failed to show context menu".to_string());
+            }
+        }
+        Ok(())
+    })
+}
+
 // 程序入口函数
 fn main() {
     // 记录进程运行的起始时间
@@ -442,45 +507,12 @@ fn main() {
             }
             
             // 右键菜单（muda）
-            #[cfg(target_os = "windows")]
             Event::UserEvent(IpcTask::ContextMenu { window_id, callback_id, menu, x, y }) => {
-                let result = (|| -> Result<(), String> {
-                    let menu = crate::apis::menu::build_menu(&menu)?;
-                    crate::window_manager::MANAGER.with(|m| {
-                        let manager = m.borrow();
-                        if let Some(entry) = manager.get(window_id) {
-                            let handle = entry.window.window_handle()
-                                .map_err(|e| format!("Failed to get window handle: {}", e))?;
-                            let raw = handle.as_raw();
-                            let hwnd = match raw {
-                                raw_window_handle::RawWindowHandle::Win32(h) => h.hwnd.get() as isize,
-                                _ => return Err("Unsupported platform".to_string()),
-                            };
-                            unsafe {
-                                use muda::ContextMenu;
-                                let position = muda::dpi::PhysicalPosition::new(x, y);
-                                menu.show_context_menu_for_hwnd(hwnd, Some(position.into()));
-                            }
-                            Ok(())
-                        } else {
-                            Err("Window not found".to_string())
-                        }
-                    })
-                })();
+                let result = show_context_menu(window_id, &menu, x, y);
                 let script = ipc::build_response_script(
                     callback_id,
                     Some(json!(true)),
                     result.err(),
-                );
-                window_manager::eval(window_id, &script);
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            Event::UserEvent(IpcTask::ContextMenu { window_id, callback_id, .. }) => {
-                let script = ipc::build_response_script(
-                    callback_id,
-                    Some(json!(true)),
-                    Some("Context menu not supported on this platform".to_string()),
                 );
                 window_manager::eval(window_id, &script);
             }
