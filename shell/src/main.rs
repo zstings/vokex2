@@ -164,6 +164,7 @@ enum IpcTask {
         y: f64,
     },
     MenuEvent(muda::MenuEvent),
+    TrayEvent(tray_icon::TrayIconEvent),
 }
 
 /// 统一构建 WebView（所有窗口共用）
@@ -283,8 +284,15 @@ fn main() {
     ipc::set_thread_pool(thread_pool.clone());
 
     // 右键菜单点击事件转发到事件循环（muda 处理右键菜单的事件）
+    let menu_proxy = proxy.clone();
     muda::MenuEvent::set_event_handler(Some(move |event: muda::MenuEvent| {
-        let _ = proxy.send_event(IpcTask::MenuEvent(event));
+        let _ = menu_proxy.send_event(IpcTask::MenuEvent(event));
+    }));
+
+    // 托盘图标点击事件转发到事件循环
+    let tray_proxy = proxy.clone();
+    tray_icon::TrayIconEvent::set_event_handler(Some(move |event: tray_icon::TrayIconEvent| {
+        let _ = tray_proxy.send_event(IpcTask::TrayEvent(event));
     }));
 
     // 创建窗口（标题、大小、图标 → WindowBuilder）WindowBuilder（窗口壳子）
@@ -481,6 +489,35 @@ fn main() {
             Event::UserEvent(IpcTask::MenuEvent(event)) => {
                 let id = event.id.0.to_string();
                 ipc::emit_all("menu.click", json!({ "id": id }));
+            }
+
+            // 托盘图标点击事件
+            Event::UserEvent(IpcTask::TrayEvent(event)) => {
+                use tray_icon::{TrayIconEvent, MouseButton};
+                let (event_name, button_name) = match &event {
+                    TrayIconEvent::Click { button, .. } => {
+                        let btn = match button {
+                            MouseButton::Left => "left",
+                            MouseButton::Right => "right",
+                            MouseButton::Middle => "middle",
+                        };
+                        ("tray.click", btn)
+                    }
+                    TrayIconEvent::DoubleClick { button, .. } => {
+                        let btn = match button {
+                            MouseButton::Left => "left",
+                            MouseButton::Right => "right",
+                            MouseButton::Middle => "middle",
+                        };
+                        ("tray.double-click", btn)
+                    }
+                    _ => ("", ""),
+                };
+                if !event_name.is_empty() {
+                    ipc::emit_all(event_name, json!({
+                        "button": button_name
+                    }));
+                }
             }
 
             // _ = 其他所有事件，不处理（忽略）

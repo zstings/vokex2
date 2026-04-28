@@ -182,6 +182,7 @@ fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Valu
             "dialog" => crate::apis::dialog::handle(method, params),
             "notification" => crate::apis::notification::handle(method, params),
             "computer" => crate::apis::computer::handle(method, params),
+            "tray" => crate::apis::tray::handle(method, params),
             _ => Err(format!("Unknown method: {}", method)),
         }
     } else {

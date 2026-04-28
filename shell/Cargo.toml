@@ -22,7 +22,7 @@ minreq = { version = "2", features = ["https"] }
 rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 arboard = { version = "3" }
 raw-window-handle = "0.6"
-muda = "0.18"
+muda = "0.17"
 tray-icon = "0.21"
 png = "0.17"
 sysinfo = { version = "0.38", default-features = false, features = ["system"] }
