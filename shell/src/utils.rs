@@ -21,9 +21,9 @@ pub fn has_flag(name: &str) -> bool {
     args.iter().any(|arg| arg == name)
 }
 
-/// 通过资源路径加载图片为 Icon 对象（只支持 PNG 格式）
-/// 开发模式：从文件系统读取，正式模式：从 exe 嵌入资源读取
-pub fn load_image(path: &str) -> Option<tao::window::Icon> {
+/// 加载 PNG 图片，返回 RGBA 像素数据及宽高
+/// 开发模式：从 exe 同目录的文件系统读取，正式模式：从嵌入资源读取
+pub fn load_png_rgba(path: &str) -> Option<(Vec<u8>, u32, u32)> {
     let data = if crate::app_config::get_config().is_dev {
         let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
         std::fs::read(exe_dir.join(path)).ok()?
@@ -52,7 +52,13 @@ pub fn load_image(path: &str) -> Option<tao::window::Icon> {
         }
         _ => return None,
     };
-    tao::window::Icon::from_rgba(rgba, info.width, info.height).ok()
+    Some((rgba, info.width, info.height))
+}
+
+/// 加载图片为 tao 窗口图标
+pub fn load_image(path: &str) -> Option<tao::window::Icon> {
+    let (rgba, width, height) = load_png_rgba(path)?;
+    tao::window::Icon::from_rgba(rgba, width, height).ok()
 }
 
 // 根据 identifier 创建 WebView 数据目录

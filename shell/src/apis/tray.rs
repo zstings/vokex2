@@ -24,52 +24,12 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
     }
 }
 
-/// 加载托盘图标 —— 与 utils::load_image 逻辑一致：
-/// 开发模式从 exe 同目录读 PNG，正式模式从嵌入资源读 PNG，解码为 RGBA 后创建
+/// 加载托盘图标，复用 utils::load_png_rgba 然后创建 tray_icon::Icon
 fn load_tray_icon(icon_path: &str) -> Result<Icon, String> {
-    let data = if crate::app_config::get_config().is_dev {
-        let exe_dir = std::env::current_exe()
-            .map_err(|e| format!("Failed to get exe path: {}", e))?
-            .parent()
-            .ok_or("Failed to get exe directory")?
-            .to_path_buf();
-        std::fs::read(exe_dir.join(icon_path))
-            .map_err(|e| format!("Failed to read icon '{}': {}", icon_path, e))?
-    } else {
-        let exe_path = std::env::current_exe()
-            .map_err(|e| format!("Failed to get exe path: {}", e))?;
-        let resources = crate::Resources::load_from_exe(&exe_path)
-            .map_err(|e| format!("Failed to load resources: {}", e))?;
-        resources.get(icon_path)
-            .ok_or_else(|| format!("Icon '{}' not found in resources", icon_path))?
-            .to_vec()
-    };
-
-    let decoder = png::Decoder::new(std::io::Cursor::new(&data));
-    let mut reader = decoder.read_info()
-        .map_err(|e| format!("Failed to decode PNG: {}", e))?;
-    let mut buf = vec![0u8; reader.output_buffer_size()];
-    let info = reader.next_frame(&mut buf)
-        .map_err(|e| format!("Failed to read PNG frame: {}", e))?;
-
-    let rgba = match info.color_type {
-        png::ColorType::Rgba => buf[..info.buffer_size()].to_vec(),
-        png::ColorType::Rgb => {
-            let rgb = &buf[..info.buffer_size()];
-            let mut rgba = Vec::with_capacity(rgb.len() / 3 * 4);
-            for chunk in rgb.chunks(3) {
-                rgba.push(chunk[0]);
-                rgba.push(chunk[1]);
-                rgba.push(chunk[2]);
-                rgba.push(255);
-            }
-            rgba
-        }
-        _ => return Err(format!("Unsupported PNG color type: {:?}", info.color_type)),
-    };
-
-    Icon::from_rgba(rgba, info.width, info.height)
-        .map_err(|e| format!("Failed to create tray icon from RGBA: {}", e))
+    let (rgba, width, height) = crate::utils::load_png_rgba(icon_path)
+        .ok_or_else(|| format!("Failed to load icon: {}", icon_path))?;
+    Icon::from_rgba(rgba, width, height)
+        .map_err(|e| format!("Failed to create tray icon: {}", e))
 }
 
 fn create(params: &Value) -> Result<Value, String> {
