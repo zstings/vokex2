@@ -139,7 +139,7 @@ export function vokexPlugin(options: VokexPluginOptions): Plugin {
     const entries = readdirSync(shellDir, { withFileTypes: true });
     // 删除除 exe 以外的所有文件和目录
     for (const entry of entries) {
-      if (entry.name.endsWith('.exe')) continue;
+      if (entry.name.includes('-x64')) continue;
       const fullPath = resolve(shellDir, entry.name);
       if (entry.isDirectory()) {
         rmSync(fullPath, { recursive: true, force: true });
