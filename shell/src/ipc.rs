@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::cell::RefCell;
 use tao::event_loop::EventLoopProxy;
 use std::sync::Arc;
@@ -89,24 +88,29 @@ pub fn process_request(window_id: u32, body: &str) {
         });
         return;
     }
-    // menu.setApplicationMenu 在主线程设置原生菜单栏
+    // menu.setApplicationMenu 路由到事件循环（避免 IPC 消息处理中调用 SetWindowPos 导致消息泵重入）
     if req.method == "menu.setApplicationMenu" {
-        let menu_template = req.params.get("menu").cloned().unwrap_or(serde_json::json!([]));
-        let response = match crate::apis::menu::set_application_menu(&menu_template) {
-            Ok(()) => IpcResponse { id: req.id, result: Some(json!(true)), error: None },
-            Err(e) => IpcResponse { id: req.id, result: None, error: Some(e) },
-        };
-        let json = serde_json::to_string(&response).unwrap_or_default();
-        let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
-        crate::window_manager::eval(window_id, &script);
+        let menu = req.params.get("menu").cloned().unwrap_or(serde_json::json!([]));
+        PROXY.with(|p| {
+            if let Some(proxy) = p.borrow().as_ref() {
+                let _ = proxy.send_event(crate::IpcTask::SetApplicationMenu {
+                    window_id,
+                    callback_id: req.id,
+                    menu,
+                });
+            }
+        });
         return;
     }
     if req.method == "menu.removeApplicationMenu" {
-        crate::apis::menu::remove_application_menu();
-        let response = IpcResponse { id: req.id, result: Some(json!(true)), error: None };
-        let json = serde_json::to_string(&response).unwrap_or_default();
-        let script = format!("window.__VOKEX_IPC__ && window.__VOKEX_IPC__({})", json);
-        crate::window_manager::eval(window_id, &script);
+        PROXY.with(|p| {
+            if let Some(proxy) = p.borrow().as_ref() {
+                let _ = proxy.send_event(crate::IpcTask::RemoveApplicationMenu {
+                    window_id,
+                    callback_id: req.id,
+                });
+            }
+        });
         return;
     }
     if req.method == "menu.setContextMenu" {

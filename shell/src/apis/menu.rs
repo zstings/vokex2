@@ -86,30 +86,53 @@ pub fn build_menu(items: &Value) -> Result<Menu, String> {
 }
 
 /// 设置原生应用菜单栏
+///
+/// 首次调用：创建 Menu 并挂载到窗口（init_for_hwnd + SetWindowPos）
+/// 后续调用：复用已有 Menu，只清空并重新填充内容，避免反复 init/remove 导致崩溃
 pub fn set_application_menu(template: &Value) -> Result<(), String> {
-    // 先移除旧菜单
-    remove_application_menu();
-
-    let menu = build_menu(template)?;
-
-    #[cfg(target_os = "windows")]
-    {
-        set_menu_windows(&menu)?;
-    }
-    #[cfg(target_os = "macos")]
-    {
-        menu.init_for_nsapp();
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        return Err("Application menu not supported on this platform".to_string());
-    }
+    let new_items = build_menu_items(template)?;
 
     APP_MENU.with(|m| {
-        *m.borrow_mut() = Some(menu);
-    });
+        let mut guard = m.borrow_mut();
 
-    Ok(())
+        if let Some(existing_menu) = guard.as_mut() {
+            // 复用已有菜单：移除旧项 → 添加新项
+            let old_items = existing_menu.items();
+            for item in old_items.iter().rev() {
+                if let Some(i) = item.as_menuitem() {
+                    let _ = existing_menu.remove(i);
+                } else if let Some(i) = item.as_check_menuitem() {
+                    let _ = existing_menu.remove(i);
+                } else if let Some(i) = item.as_submenu() {
+                    let _ = existing_menu.remove(i);
+                } else if let Some(i) = item.as_predefined_menuitem() {
+                    let _ = existing_menu.remove(i);
+                } else if let Some(i) = item.as_icon_menuitem() {
+                    let _ = existing_menu.remove(i);
+                }
+            }
+            for item in &new_items {
+                existing_menu.append(item.as_ref())
+                    .map_err(|e| format!("{}", e))?;
+            }
+        } else {
+            // 首次：创建菜单并挂载到窗口
+            let menu = Menu::new();
+            for item in &new_items {
+                menu.append(item.as_ref())
+                    .map_err(|e| format!("{}", e))?;
+            }
+            #[cfg(target_os = "windows")]
+            { set_menu_windows(&menu)?; }
+            #[cfg(target_os = "macos")]
+            { menu.init_for_nsapp(); }
+            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+            { return Err("Application menu not supported on this platform".to_string()); }
+            *guard = Some(menu);
+        }
+
+        Ok(())
+    })
 }
 
 #[cfg(target_os = "windows")]

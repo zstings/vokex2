@@ -163,6 +163,15 @@ enum IpcTask {
         x: f64,
         y: f64,
     },
+    SetApplicationMenu {
+        window_id: u32,
+        callback_id: u64,
+        menu: serde_json::Value,
+    },
+    RemoveApplicationMenu {
+        window_id: u32,
+        callback_id: u64,
+    },
     MenuEvent(muda::MenuEvent),
     TrayEvent(tray_icon::TrayIconEvent),
 }
@@ -513,6 +522,28 @@ fn main() {
                     callback_id,
                     Some(json!(true)),
                     result.err(),
+                );
+                window_manager::eval(window_id, &script);
+            }
+
+            // 设置应用菜单栏（必须在事件循环中执行，避免 IPC 消息处理中调用 SetWindowPos 导致消息泵重入）
+            Event::UserEvent(IpcTask::SetApplicationMenu { window_id, callback_id, menu }) => {
+                let result = crate::apis::menu::set_application_menu(&menu);
+                let script = ipc::build_response_script(
+                    callback_id,
+                    Some(json!(true)),
+                    result.err(),
+                );
+                window_manager::eval(window_id, &script);
+            }
+
+            // 移除应用菜单栏
+            Event::UserEvent(IpcTask::RemoveApplicationMenu { window_id, callback_id }) => {
+                crate::apis::menu::remove_application_menu();
+                let script = ipc::build_response_script(
+                    callback_id,
+                    Some(json!(true)),
+                    None,
                 );
                 window_manager::eval(window_id, &script);
             }
