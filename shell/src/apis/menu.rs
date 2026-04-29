@@ -85,10 +85,30 @@ pub fn build_menu(items: &Value) -> Result<Menu, String> {
     Ok(menu)
 }
 
+/// 清空 Menu 中的所有菜单项（不 detach 窗口子类化）
+fn clear_menu_items(menu: &Menu) {
+    let old_items = menu.items();
+    for item in old_items.iter().rev() {
+        if let Some(i) = item.as_menuitem() {
+            let _ = menu.remove(i);
+        } else if let Some(i) = item.as_check_menuitem() {
+            let _ = menu.remove(i);
+        } else if let Some(i) = item.as_submenu() {
+            let _ = menu.remove(i);
+        } else if let Some(i) = item.as_predefined_menuitem() {
+            let _ = menu.remove(i);
+        } else if let Some(i) = item.as_icon_menuitem() {
+            let _ = menu.remove(i);
+        }
+    }
+}
+
 /// 设置原生应用菜单栏
 ///
-/// 首次调用：创建 Menu 并挂载到窗口（init_for_hwnd + SetWindowPos）
-/// 后续调用：复用已有 Menu，只清空并重新填充内容，避免反复 init/remove 导致崩溃
+/// 首次调用：创建 Menu 并挂载到窗口（init_for_hwnd + SetWindowPos），仅此一次
+/// 后续调用：复用已有 Menu，只清空并重新填充内容
+/// removeApplicationMenu 也只清空内容，不 detach 窗口子类化
+/// 整个生命周期内 init_for_hwnd 只调用一次，避免 muda 子类化反复挂载/卸载导致崩溃
 pub fn set_application_menu(template: &Value) -> Result<(), String> {
     let new_items = build_menu_items(template)?;
 
@@ -96,27 +116,14 @@ pub fn set_application_menu(template: &Value) -> Result<(), String> {
         let mut guard = m.borrow_mut();
 
         if let Some(existing_menu) = guard.as_mut() {
-            // 复用已有菜单：移除旧项 → 添加新项
-            let old_items = existing_menu.items();
-            for item in old_items.iter().rev() {
-                if let Some(i) = item.as_menuitem() {
-                    let _ = existing_menu.remove(i);
-                } else if let Some(i) = item.as_check_menuitem() {
-                    let _ = existing_menu.remove(i);
-                } else if let Some(i) = item.as_submenu() {
-                    let _ = existing_menu.remove(i);
-                } else if let Some(i) = item.as_predefined_menuitem() {
-                    let _ = existing_menu.remove(i);
-                } else if let Some(i) = item.as_icon_menuitem() {
-                    let _ = existing_menu.remove(i);
-                }
-            }
+            // 复用已有菜单：清空旧项 → 添加新项
+            clear_menu_items(existing_menu);
             for item in &new_items {
                 existing_menu.append(item.as_ref())
                     .map_err(|e| format!("{}", e))?;
             }
         } else {
-            // 首次：创建菜单并挂载到窗口
+            // 首次：创建菜单并挂载到窗口（唯一一次 init_for_hwnd + SetWindowPos）
             let menu = Menu::new();
             for item in &new_items {
                 menu.append(item.as_ref())
@@ -170,34 +177,15 @@ fn set_menu_windows(menu: &Menu) -> Result<(), String> {
     Ok(())
 }
 
+/// 移除应用菜单栏
+///
+/// 只清空菜单项内容，不 detach 窗口子类化。
+/// Menu 对象保留在 APP_MENU 中，后续 setApplicationMenu 可直接复用。
 pub fn remove_application_menu() {
     APP_MENU.with(|m| {
-        let mut guard = m.borrow_mut();
-        if let Some(menu) = guard.take() {
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd_opt = crate::window_manager::MANAGER.with(|m| {
-                    let manager = m.borrow();
-                    manager.get(1).and_then(|entry| {
-                        entry.window.window_handle().ok()
-                    }).map(|handle| {
-                        match handle.as_raw() {
-                            raw_window_handle::RawWindowHandle::Win32(h) => Some(h.hwnd.get() as isize),
-                            _ => None,
-                        }
-                    }).flatten()
-                });
-                if let Some(hwnd) = hwnd_opt {
-                    unsafe {
-                        let _ = menu.remove_for_hwnd(hwnd);
-                    }
-                }
-            }
-            #[cfg(target_os = "macos")]
-            {
-                menu.remove_for_nsapp();
-            }
-            // menu 在这里被 drop，释放菜单资源
+        let guard = m.borrow();
+        if let Some(existing_menu) = guard.as_ref() {
+            clear_menu_items(existing_menu);
         }
     });
 }
