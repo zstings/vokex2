@@ -392,7 +392,7 @@ fn main() {
     {
         let mut ctx = web_context.lock().unwrap();
         let webview = build_webview(&window, window_id, &default_url, &mut ctx, &resources).unwrap();
-        window_manager::register_with_id(window_id, window, webview);
+        window_manager::register_with_id(window_id, window, webview, default_url.clone());
     }
 
     // ============================================================
@@ -505,7 +505,7 @@ fn main() {
                     wv
                 };
 
-                window_manager::register_with_id(new_window_id, new_window, new_webview);
+                window_manager::register_with_id(new_window_id, new_window, new_webview, url.clone());
 
                 let script = ipc::build_response_script(
                     callback_id,

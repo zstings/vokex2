@@ -44,6 +44,8 @@ impl WindowEntry {
 pub struct WindowEntry {
     pub window: Window,
     pub webview: WebView,
+    /// 窗口加载的 URL
+    pub url: String,
 }
 
 /// 窗口管理器 - 存储所有窗口的 WebView
@@ -65,12 +67,12 @@ impl WindowManager {
     }
 
     /// 注册窗口，返回分配的窗口 ID
-    pub fn register(&mut self, window: Window, webview: WebView) -> u32 {
+    pub fn register(&mut self, window: Window, webview: WebView, url: String) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
         let tao_id = window.id();
         self.tao_to_vokex.insert(tao_id, id);
-        self.windows.insert(id, WindowEntry { window, webview });
+        self.windows.insert(id, WindowEntry { window, webview, url });
         id
     }
 
@@ -131,8 +133,8 @@ thread_local! {
 }
 
 /// 注册窗口，返回窗口 ID
-pub fn register(window: Window, webview: WebView) -> u32 {
-    MANAGER.with(|m| m.borrow_mut().register(window, webview))
+pub fn register(window: Window, webview: WebView, url: String) -> u32 {
+    MANAGER.with(|m| m.borrow_mut().register(window, webview, url))
 }
 
 /// 注销窗口
@@ -160,11 +162,11 @@ pub fn next_id() -> u32 {
 }
 
 /// 用指定 ID 注册窗口（主窗口用，因为 ID 在 WebView 创建前就分配了）
-pub fn register_with_id(id: u32, window: Window, webview: WebView) {
+pub fn register_with_id(id: u32, window: Window, webview: WebView, url: String) {
     MANAGER.with(|m| {
         let tao_id = window.id();
         m.borrow_mut().tao_to_vokex.insert(tao_id, id);
-        m.borrow_mut().windows.insert(id, WindowEntry { window, webview });
+        m.borrow_mut().windows.insert(id, WindowEntry { window, webview, url });
     });
 }
 
@@ -178,4 +180,11 @@ pub fn get_id_by_tao_id(tao_id: WindowId) -> Option<u32> {
 
 pub fn get_main_window_id() -> Option<u32> {
     MANAGER.with(|m| m.borrow().get_main_window_id())
+}
+
+/// 获取指定窗口的 URL
+pub fn get_window_url(id: u32) -> Option<String> {
+    MANAGER.with(|m| {
+        m.borrow().windows.get(&id).map(|e| e.url.clone())
+    })
 }

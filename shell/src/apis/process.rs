@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
+pub fn handle(method: &str, params: &Value, _window_id: u32) -> Result<Value, String> {
     match method {
        "process.getUptime" => {
             let now = std::time::SystemTime::now()
@@ -41,8 +41,20 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         }
 
         "process.kill" => {
+            let perms = crate::apis::permissions::get_permissions(_window_id);
+            if !perms.process.allow_kill {
+                return Err("Permission denied: process.kill is not allowed for this window".to_string());
+            }
+
             let pid = params.get("pid").and_then(|v| v.as_i64())
                 .ok_or("Missing 'pid' parameter")?;
+
+            // 安全检查：不允许杀自己的进程
+            let current_pid = std::process::id() as i64;
+            if pid == current_pid {
+                return Err("Cannot kill own process".to_string());
+            }
+
             #[cfg(target_os = "windows")]
             {
                 std::process::Command::new("taskkill")
@@ -62,10 +74,25 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         }
 
         "process.env" => {
-            let env: serde_json::Map<String, Value> = std::env::vars()
-                .map(|(k, v)| (k, json!(v)))
-                .collect();
-            Ok(json!(env))
+            let perms = crate::apis::permissions::get_permissions(_window_id);
+            let allowed_keys = &perms.process.env_keys;
+
+            if allowed_keys.is_empty() {
+                // 空白名单 = 不限制（主窗口默认）
+                let env: serde_json::Map<String, Value> = std::env::vars()
+                    .map(|(k, v)| (k, json!(v)))
+                    .collect();
+                Ok(json!(env))
+            } else {
+                // 只返回白名单中的 key
+                let mut env = serde_json::Map::new();
+                for key in allowed_keys {
+                    if let Ok(val) = std::env::var(key) {
+                        env.insert(key.clone(), json!(val));
+                    }
+                }
+                Ok(json!(env))
+            }
         }
 
         _ => Err(format!("Unknown method: {}", method)),

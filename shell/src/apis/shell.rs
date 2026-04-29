@@ -1,6 +1,51 @@
 use serde_json::{json, Value};
 use std::process::Command;
 
+/// 检查命令是否在白名单内
+fn check_command_whitelist(command: &str, window_id: u32) -> Result<(), String> {
+    let perms = crate::apis::permissions::get_permissions(window_id);
+    let whitelist = &perms.shell.commands;
+
+    // 空白名单 = 不限制（主窗口默认行为）
+    if whitelist.is_empty() {
+        return Ok(());
+    }
+
+    // 提取命令的第一个 token（可执行文件名）
+    let cmd_name = command.trim().split_whitespace().next()
+        .unwrap_or("");
+
+    // 去掉路径前缀，只取文件名
+    let cmd_basename = std::path::Path::new(cmd_name)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or(cmd_name);
+
+    // Windows 上去掉 .exe 后缀再比较
+    let cmd_normalized = cmd_basename
+        .strip_suffix(".exe")
+        .unwrap_or(cmd_basename)
+        .to_lowercase();
+
+    for allowed in whitelist {
+        if cmd_normalized == allowed.to_lowercase() {
+            return Ok(());
+        }
+    }
+
+    Err(format!("Command not allowed: '{}' is not in the whitelist", cmd_name))
+}
+
+/// 检查 URL scheme 是否安全
+fn check_url_scheme(url: &str) -> Result<(), String> {
+    let lower = url.to_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
+        Ok(())
+    } else {
+        Err(format!("URL scheme not allowed: only http:// and https:// are permitted"))
+    }
+}
+
 /// 用系统默认程序打开 URL
 fn open_external(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -89,11 +134,12 @@ fn exec_command(command: &str, cwd: Option<&str>, env: Option<&Value>) -> Result
     }))
 }
 
-pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
+pub fn handle(method: &str, params: &Value, _window_id: u32) -> Result<Value, String> {
     match method {
         "shell.openExternal" => {
             let url = params.get("url").and_then(|v| v.as_str())
                 .ok_or("Missing 'url' parameter")?;
+            check_url_scheme(url)?;
             open_external(url)?;
             Ok(json!(true))
         }
@@ -108,6 +154,7 @@ pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
         "shell.execCommand" => {
             let command = params.get("command").and_then(|v| v.as_str())
                 .ok_or("Missing 'command' parameter")?;
+            check_command_whitelist(command, _window_id)?;
             let cwd = params.get("cwd").and_then(|v| v.as_str());
             let env = params.get("env");
             exec_command(command, cwd, env)

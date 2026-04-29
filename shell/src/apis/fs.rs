@@ -1,49 +1,111 @@
 use serde_json::{json, Value};
 use std::io::Write;
+use std::path::{Path, PathBuf};
+
+/// 将配置中的占位符展开为实际路径
+fn expand_placeholder(placeholder: &str, identifier: &str) -> PathBuf {
+    match placeholder {
+        "{appData}" | "{userData}" => {
+            let base = dirs::data_dir()
+                .unwrap_or_else(|| PathBuf::from("."));
+            base.join(identifier)
+        }
+        "{temp}" => std::env::temp_dir(),
+        "{home}" => dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")),
+        "{desktop}" => dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(".")),
+        "{documents}" => dirs::document_dir().unwrap_or_else(|| PathBuf::from(".")),
+        other => PathBuf::from(other),
+    }
+}
+
+/// 标准化路径：解析 `..`、`.`，处理 Windows 前缀
+fn normalize_path(path: &str) -> PathBuf {
+    let p = Path::new(path);
+    // 尝试 canonicalize，如果路径不存在则手动 normalize
+    std::fs::canonicalize(p).unwrap_or_else(|_| {
+        let mut components = Vec::new();
+        for comp in p.components() {
+            match comp {
+                std::path::Component::ParentDir => { components.pop(); }
+                std::path::Component::CurDir => {}
+                other => components.push(other),
+            }
+        }
+        components.iter().collect()
+    })
+}
+
+/// 检查路径是否在沙箱内
+pub fn check_path_sandbox(path: &str, window_id: u32) -> Result<(), String> {
+    let perms = crate::apis::permissions::get_permissions(window_id);
+    let sandbox = &perms.fs.sandbox;
+
+    // 空 sandbox = 不限制（主窗口默认行为）
+    if sandbox.is_empty() {
+        return Ok(());
+    }
+
+    let config = crate::app_config::get_config();
+    let normalized = normalize_path(path);
+
+    for allowed_prefix in sandbox {
+        let expanded = expand_placeholder(allowed_prefix, &config.identifier);
+        let expanded_normalized = normalize_path(&expanded.to_string_lossy());
+        if normalized.starts_with(&expanded_normalized) {
+            return Ok(());
+        }
+    }
+
+    Err(format!("Path access denied: '{}' is outside allowed sandbox", path))
+}
 
 /// 处理 fs 模块的 API 调用
-pub fn handle(method: &str, params: &Value) -> Result<Value, String> {
+pub fn handle(method: &str, params: &Value, window_id: u32) -> Result<Value, String> {
     match method {
-        "fs.readFile" => read_file(params),
-        "fs.readFileBinary" => read_file_binary(params),
-        "fs.writeFile" => write_file(params),
-        "fs.appendFile" => append_file(params),
-        "fs.deleteFile" => delete_file(params),
-        "fs.readDir" => read_dir(params),
-        "fs.createDir" => create_dir(params),
-        "fs.removeDir" => remove_dir(params),
-        "fs.stat" => stat(params),
-        "fs.exists" => exists(params),
-        "fs.copyFile" => copy_file(params),
-        "fs.moveFile" => move_file(params),
+        "fs.readFile" => read_file(params, window_id),
+        "fs.readFileBinary" => read_file_binary(params, window_id),
+        "fs.writeFile" => write_file(params, window_id),
+        "fs.appendFile" => append_file(params, window_id),
+        "fs.deleteFile" => delete_file(params, window_id),
+        "fs.readDir" => read_dir(params, window_id),
+        "fs.createDir" => create_dir(params, window_id),
+        "fs.removeDir" => remove_dir(params, window_id),
+        "fs.stat" => stat(params, window_id),
+        "fs.exists" => exists(params, window_id),
+        "fs.copyFile" => copy_file(params, window_id),
+        "fs.moveFile" => move_file(params, window_id),
         _ => Err(format!("Unknown fs method: {}", method)),
     }
 }
 
-fn read_file(params: &Value) -> Result<Value, String> {
+fn read_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     std::fs::read_to_string(path)
         .map(|content| json!(content))
         .map_err(|e| e.to_string())
 }
 
-fn read_file_binary(params: &Value) -> Result<Value, String> {
+fn read_file_binary(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     // 返回 base64 编码，比字节数组更紧凑
     Ok(json!(base64_encode(&bytes)))
 }
 
-fn write_file(params: &Value) -> Result<Value, String> {
+fn write_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     let data = params.get("data").and_then(|v| v.as_str()).ok_or("Missing param: data")?;
     std::fs::write(path, data)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())
 }
 
-fn append_file(params: &Value) -> Result<Value, String> {
+fn append_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     let data = params.get("data").and_then(|v| v.as_str()).ok_or("Missing param: data")?;
     std::fs::OpenOptions::new()
         .create(true)
@@ -54,15 +116,17 @@ fn append_file(params: &Value) -> Result<Value, String> {
         .map_err(|e| e.to_string())
 }
 
-fn delete_file(params: &Value) -> Result<Value, String> {
+fn delete_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     std::fs::remove_file(path)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())
 }
 
-fn read_dir(params: &Value) -> Result<Value, String> {
+fn read_dir(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     let entries = std::fs::read_dir(path).map_err(|e| e.to_string())?;
     let mut result = Vec::new();
     for entry in entries {
@@ -78,22 +142,25 @@ fn read_dir(params: &Value) -> Result<Value, String> {
     Ok(json!(result))
 }
 
-fn create_dir(params: &Value) -> Result<Value, String> {
+fn create_dir(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     std::fs::create_dir_all(path)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())
 }
 
-fn remove_dir(params: &Value) -> Result<Value, String> {
+fn remove_dir(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     std::fs::remove_dir_all(path)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())
 }
 
-fn stat(params: &Value) -> Result<Value, String> {
+fn stat(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let modified = metadata.modified()
         .ok()
@@ -108,22 +175,27 @@ fn stat(params: &Value) -> Result<Value, String> {
     }))
 }
 
-fn exists(params: &Value) -> Result<Value, String> {
+fn exists(params: &Value, window_id: u32) -> Result<Value, String> {
     let path = params.get("path").and_then(|v| v.as_str()).ok_or("Missing param: path")?;
+    check_path_sandbox(path, window_id)?;
     Ok(json!(std::path::Path::new(path).exists()))
 }
 
-fn copy_file(params: &Value) -> Result<Value, String> {
+fn copy_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let source = params.get("source").and_then(|v| v.as_str()).ok_or("Missing param: source")?;
     let destination = params.get("destination").and_then(|v| v.as_str()).ok_or("Missing param: destination")?;
+    check_path_sandbox(source, window_id)?;
+    check_path_sandbox(destination, window_id)?;
     std::fs::copy(source, destination)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())
 }
 
-fn move_file(params: &Value) -> Result<Value, String> {
+fn move_file(params: &Value, window_id: u32) -> Result<Value, String> {
     let source = params.get("source").and_then(|v| v.as_str()).ok_or("Missing param: source")?;
     let destination = params.get("destination").and_then(|v| v.as_str()).ok_or("Missing param: destination")?;
+    check_path_sandbox(source, window_id)?;
+    check_path_sandbox(destination, window_id)?;
     std::fs::rename(source, destination)
         .map(|_| json!(null))
         .map_err(|e| e.to_string())

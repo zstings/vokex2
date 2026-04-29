@@ -79,6 +79,45 @@ export interface VokexPluginOptions {
     width?: number,
     heiught?: number,
   }
+  /** 权限声明（可选，仅针对远程页面，本地页面默认拥有全部权限） */
+  permissions?: {
+    /** 远程页面权限（http/https 外部地址） */
+    remote?: PermissionSet;
+  };
+}
+
+/** 权限集合 */
+interface PermissionSet {
+  /** 文件系统权限 */
+  fs?: {
+    /** 是否允许访问 */
+    allowed?: boolean;
+    /** 允许的路径前缀列表，空 = 不限制。支持占位符：{appData}, {userData}, {temp}, {home}, {desktop}, {documents} */
+    sandbox?: string[];
+  };
+  /** Shell 命令权限 */
+  shell?: {
+    /** 是否允许执行命令 */
+    allowed?: boolean;
+    /** 允许的命令前缀列表，空 = 不限制 */
+    commands?: string[];
+  };
+  /** HTTP 请求权限 */
+  http?: {
+    /** 是否允许发起 HTTP 请求 */
+    allowed?: boolean;
+    /** 是否阻止内网地址（127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16） */
+    blockInternal?: boolean;
+  };
+  /** 进程管理权限 */
+  process?: {
+    /** 是否允许访问进程信息 */
+    allowed?: boolean;
+    /** 是否允许杀死进程 */
+    allowKill?: boolean;
+    /** 允许的环境变量 key 列表，空 = 不限制 */
+    envKeys?: string[];
+  };
 }
 
 /** 获取预编译壳路径 */

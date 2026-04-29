@@ -14,6 +14,117 @@ pub struct AppConfigSx {
     pub devtools: bool,
     pub new_window: AppConfigNewWindow,
     pub is_dev: bool,
+    pub permissions: PermissionsConfig,
+}
+
+/// 权限配置（仅针对远程页面，本地页面默认拥有全部权限）
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct PermissionsConfig {
+    /// 远程页面权限（http/https 外部地址）
+    pub remote: PermissionSet,
+}
+
+impl Default for PermissionsConfig {
+    fn default() -> Self {
+        Self {
+            remote: PermissionSet::default_remote(),
+        }
+    }
+}
+
+/// 权限集合
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct PermissionSet {
+    pub fs: FsPermission,
+    pub shell: ShellPermission,
+    pub http: HttpPermission,
+    pub process: ProcessPermission,
+}
+
+impl Default for PermissionSet {
+    fn default() -> Self {
+        Self::default_remote()
+    }
+}
+
+impl PermissionSet {
+    /// 远程页面默认：全部禁止
+    pub fn default_remote() -> Self {
+        Self {
+            fs: FsPermission { allowed: false, sandbox: vec![] },
+            shell: ShellPermission { allowed: false, commands: vec![] },
+            http: HttpPermission { allowed: false, block_internal: true },
+            process: ProcessPermission { allowed: false, allow_kill: false, env_keys: vec![] },
+        }
+    }
+}
+
+/// 文件系统权限
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct FsPermission {
+    /// 是否允许访问
+    pub allowed: bool,
+    /// 允许的路径前缀列表，空 = 不限制
+    pub sandbox: Vec<String>,
+}
+
+impl Default for FsPermission {
+    fn default() -> Self {
+        Self { allowed: false, sandbox: vec![] }
+    }
+}
+
+/// Shell 命令权限
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct ShellPermission {
+    /// 是否允许执行命令
+    pub allowed: bool,
+    /// 允许的命令前缀列表，空 = 不限制
+    pub commands: Vec<String>,
+}
+
+impl Default for ShellPermission {
+    fn default() -> Self {
+        Self { allowed: false, commands: vec![] }
+    }
+}
+
+/// HTTP 请求权限
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct HttpPermission {
+    /// 是否允许发起 HTTP 请求
+    pub allowed: bool,
+    /// 是否阻止内网地址
+    pub block_internal: bool,
+}
+
+impl Default for HttpPermission {
+    fn default() -> Self {
+        Self { allowed: false, block_internal: true }
+    }
+}
+
+/// 进程管理权限
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct ProcessPermission {
+    /// 是否允许访问进程信息
+    pub allowed: bool,
+    /// 是否允许杀死进程
+    pub allow_kill: bool,
+    /// 允许的环境变量 key 列表，空 = 不限制
+    pub env_keys: Vec<String>,
+}
+
+impl Default for ProcessPermission {
+    fn default() -> Self {
+        Self { allowed: false, allow_kill: false, env_keys: vec![] }
+    }
 }
 
 #[derive(Deserialize, Default, Clone, Debug)]

@@ -141,7 +141,7 @@ pub fn process_request(window_id: u32, body: &str) {
             if let Some(pool) = tp.borrow().as_ref() {
                 let pool = pool.clone();
                 pool.run(move || {
-                    let response = match dispatch(&method, &params) {
+                    let response = match dispatch(&method, &params, window_id) {
                         Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
                         Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
                     };
@@ -159,7 +159,7 @@ pub fn process_request(window_id: u32, body: &str) {
         });
     } else {
         // 同步 API：直接在主线程执行
-        let response = match dispatch(&req.method, &req.params) {
+        let response = match dispatch(&req.method, &req.params, window_id) {
             Ok(result) => IpcResponse { id: req.id, result: Some(result), error: None },
             Err(err) => IpcResponse { id: req.id, result: None, error: Some(err) },
         };
@@ -184,17 +184,19 @@ pub fn resolve_async_response(window_id: u32, id: u64, result: Option<serde_json
     crate::window_manager::eval(window_id, &script);
 }
 
-fn dispatch(method: &str, params: &serde_json::Value) -> Result<serde_json::Value, String> {
+fn dispatch(method: &str, params: &serde_json::Value, window_id: u32) -> Result<serde_json::Value, String> {
     // 按模块前缀分发
     if let Some(module) = method.split('.').next() {
+        // 权限检查
+        crate::apis::permissions::check_module(window_id, module)?;
         match module {
             "app" => crate::apis::app::handle(method, params),
-            "fs" => crate::apis::fs::handle(method, params),
+            "fs" => crate::apis::fs::handle(method, params, window_id),
             "browserWindow" => crate::apis::browser_window::handle(method, params),
             "storage" => crate::apis::storage::handle(method, params),
-            "shell" => crate::apis::shell::handle(method, params),
-            "process" => crate::apis::process::handle(method, params),
-            "http" => crate::apis::http::handle(method, params),
+            "shell" => crate::apis::shell::handle(method, params, window_id),
+            "process" => crate::apis::process::handle(method, params, window_id),
+            "http" => crate::apis::http::handle(method, params, window_id),
             "clipboard" => crate::apis::clipboard::handle(method, params),
             "dialog" => crate::apis::dialog::handle(method, params),
             "notification" => crate::apis::notification::handle(method, params),
